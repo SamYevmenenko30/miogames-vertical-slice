@@ -1,5 +1,8 @@
 # Process — the pipeline this repository is built with
 
+> The mechanics are here. The argument for them — the tooling, the five Part D answers and where
+> the strength is — is in [ai/how-ai-was-used.md](ai/how-ai-was-used.md).
+
 One person and an AI agent built this. The process exists because the usual controls (a second
 pair of eyes, a slow review, institutional memory) are the controls a solo AI-assisted build does
 not have. Each one is replaced with something a machine can check.

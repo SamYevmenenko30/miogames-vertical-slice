@@ -4,6 +4,10 @@ Most of the code in this repository was written by an AI agent (Claude, via Clau
 document is the evidence for that claim and, more usefully, the evidence for what had to be built
 around it.
 
+For the tooling, the five things the assignment asks to be shown, and the argument for why this
+process rather than another, see [how-ai-was-used.md](how-ai-was-used.md). This document is the
+evidence underneath it: what the gates actually caught.
+
 The short version: **writing the code was the easy half.** The agent is fast, fluent, and exactly
 as fluent when it is wrong. What made the output trustworthy was a set of gates that could fail —
 and the single most useful thing in this repository is that the gates themselves were tested, and
