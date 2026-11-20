@@ -233,6 +233,22 @@ const probes = [
     },
   },
   {
+    name: 'test-guard/a-test-added-and-then-bent-on-the-same-branch',
+    gate: ['node', ['scripts/test-guard.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    expect: /was modified on this branch with no declaration/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-added-then-bent.spec.ts',
+        `import { expect, it } from 'vitest';\n\nit('S1 — probe', () => { expect(compute()).toBe(3); });\n`);
+      commit('test: probe added\n');
+      write('src/probe-added-then-bent.spec.ts',
+        `import { expect, it } from 'vitest';\n\nit('S1 — probe', () => { expect(compute()).toBe(4); });\n`);
+      commit('fix: make it pass\n');
+      return base;
+    },
+  },
+  {
     name: 'red-check/a-new-test-that-is-green-without-the-code',
     gate: ['node', ['scripts/red-check.mjs']],
     expectEnv: (base) => ({ MIO_BASE_REF: base }),
