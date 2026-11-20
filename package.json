@@ -1,0 +1,68 @@
+{
+  "name": "miogames-slice",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "dev": "tsx watch src/main.api.ts",
+    "dev:worker": "tsx watch src/main.worker.ts",
+    "dev:casino": "tsx watch src/mocks/casino-platform/main.ts",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:seed": "tsx scripts/db-seed.ts",
+    "verify": "node scripts/verify.mjs",
+    "board": "node scripts/board.mjs",
+    "board:check": "node scripts/board.mjs --check",
+    "spec-gate": "node scripts/spec-gate.mjs",
+    "red-check": "node scripts/red-check.mjs",
+    "test-guard": "node scripts/test-guard.mjs",
+    "arch-check": "node scripts/arch-check.mjs",
+    "review:request": "node scripts/review-request.mjs",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.11",
+    "@nestjs/core": "^11.2.11",
+    "@nestjs/platform-express": "^11.2.11",
+    "drizzle-orm": "^0.45.4",
+    "express": "^5.3.0",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "postgres": "^4.1.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.2.11",
+    "@swc/core": "^1.16.22",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/supertest": "^7.2.1",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^10.15.0",
+    "eslint-plugin-boundaries": "^7.4.4",
+    "supertest": "^7.3.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.73.0",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.1.1",
+    "yaml": "^2.9.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild"
+    ]
+  }
+}
