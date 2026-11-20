@@ -364,7 +364,54 @@ const probes = [
         `let sql: Awaited<ReturnType<typeof createTestDb>>;\n` +
         `beforeAll(async () => { sql = await createTestDb('probe-missing'); await sql.sql\`select 1 from probe_absent\`; });\n` +
         `it('S1 — probe', () => { expect(1).toBe(1); });\n`);
-      commit('test: a spec whose setup needs a table the branch adds\n');
+      // The declaration is required now that an all-crash-red ticket does not pass
+      // on crash-red alone: this probe plants exactly one crash-red file, so it is
+      // also the happy path of `crash-red-accepted:`.
+      commit('test: a spec whose setup needs a table the branch adds\n\n' +
+        'crash-red-accepted: src/probe-missing-table.integration.spec.ts — the table arrives with ' +
+        'the branch, so the setup cannot reach an assertion at the base\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/an-all-crash-red-ticket-does-not-pass-on-crash-red-alone',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // crash-red means "this file cannot run without the branch", which a test
+    // asserting nothing also achieves. A ticket proved ENTIRELY that way is not
+    // proved, and must either produce one assertion-red file or declare each one.
+    expect: /none fails on an assertion/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-crash-module.ts', `export const f = (): number => 1;\n`);
+      write('src/probe-all-crash.spec.ts',
+        `import { expect, it } from 'vitest';\nimport { f } from './probe-crash-module';\n\n` +
+        `it('S1 — probe', () => { expect(f()).toBe(1); });\n`);
+      commit('test: a spec that can only ever be crash-red, undeclared\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/a-typeerror-is-crash-red-not-assertion-red',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // The import RESOLVES at the base (the file exists); only the named export is
+    // new, so the call throws `TypeError: … is not a function` without ever
+    // evaluating the expectation. vitest still echoes `expect(...).toBe(...)` in
+    // the code frame, which the classifier used to read as proof of an assertion
+    // and report as assertion-red — a stronger verdict than the run earned.
+    expectPass: true,
+    expect: /crash-red[\s\S]*TypeError — the run never reached an assertion/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-typeerror.spec.ts',
+        `import { expect, it } from 'vitest';\n` +
+        `// @ts-expect-error — this export is what the branch adds; at the base it is undefined.\n` +
+        `import { brandNewHelper } from './platform/clock/clock';\n\n` +
+        `it('S1 — probe', () => { expect(brandNewHelper(21)).toBe(42); });\n`);
+      commit('test: a spec whose base run crashes before any assertion\n\n' +
+        'crash-red-accepted: src/probe-typeerror.spec.ts — the helper arrives with the branch, so ' +
+        'the call cannot reach an assertion at the base\n');
       return base;
     },
   },

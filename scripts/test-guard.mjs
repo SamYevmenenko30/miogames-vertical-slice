@@ -49,7 +49,10 @@ const declarations = [];
 const log = git('log', `${base}..HEAD`, '--pretty=%B%x01');
 for (const message of log.split('\u0001')) {
   for (const m of message.matchAll(/^spec-conflict:\s*(\S+)\s*(?:—|--)\s*(.+)$/gm)) {
-    declarations.push({ target: m[1], reason: m[2].trim() });
+    declarations.push({ kind: 'spec-conflict', target: m[1], reason: m[2].trim() });
+  }
+  for (const m of message.matchAll(/^test-fix:\s*(\S+)\s*(?:—|--)\s*(.+)$/gm)) {
+    declarations.push({ kind: 'test-fix', target: m[1], reason: m[2].trim() });
   }
 }
 
@@ -57,13 +60,17 @@ for (const path of [...changed.map(([, p]) => p), ...editedAfterAdding]) {
   const base_ = path.split('/').pop();
   const found = declarations.find((d) => d.target === path || d.target === base_);
   if (!found) {
-    r.error(`${path} was modified on this branch with no declaration. If the spec is wrong, commit:\n` +
+    r.error(`${path} was modified on this branch with no declaration. If the SPEC is wrong, commit:\n` +
             `      spec-conflict: ${path} — <what the spec gets wrong>\n` +
-            `   If the spec is right, fix the code instead.`);
+            `   If the TEST is wrong — a broken fixture, a weak assertion, an added case — commit:\n` +
+            `      test-fix: ${path} — <what was wrong with the test>\n` +
+            `   If both are right, fix the code instead.`);
   } else if (found.reason.length < 15) {
-    r.error(`${path}: the spec-conflict declaration has no real reason ("${found.reason}")`);
-  } else {
+    r.error(`${path}: the ${found.kind} declaration has no real reason ("${found.reason}")`);
+  } else if (found.kind === 'spec-conflict') {
     r.warn(`${path}: modified under spec-conflict — "${found.reason}". The ticket goes back to the spec phase.`);
+  } else {
+    r.note(`${path}: modified under test-fix — "${found.reason}". The spec is unchanged, so the ticket stays put.`);
   }
 }
 

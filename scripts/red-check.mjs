@@ -23,10 +23,12 @@
  *        manufacture the verdict of the next one.
  *   3. Classify the result:
  *      assertion-red  the test ran and its expectation failed. The strong result.
- *      crash-red      the file could not import code the branch adds. Counts as
- *                     red — it cannot pass without the branch — but proves less,
- *                     and is reported separately so a reviewer can see how much
- *                     of the suite rests on it.
+ *      crash-red      the file could not reach an assertion at all. Counts as
+ *                     red — it cannot pass without the branch — but proves much
+ *                     less: a test asserting NOTHING clears that bar too, as long
+ *                     as it imports something the branch adds. So a ticket whose
+ *                     added files are ALL crash-red does not pass on that alone
+ *                     (see "crash-red is not a proof on its own" below).
  *      GREEN          the gate fails. The test does not need the branch.
  *      cannot verify  the runner could not execute the file, or the environment
  *                     (Postgres) was not there. FAILS CLOSED — never counted as
@@ -43,6 +45,12 @@
  *     on this branch, naming the exact path and a reason a reviewer can check:
  *
  *       red-check-exempt: <path> — <why the base run cannot see the change>
+ *
+ *   - A ticket whose added test files are ALL crash-red is not proven by this
+ *     gate. Make at least one of them fail on an assertion, or declare each
+ *     crash-red file, the same way:
+ *
+ *       crash-red-accepted: <path> — <why no assertion is reachable at the base>
  */
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -63,9 +71,13 @@ const added = git('diff', '--name-status', '--diff-filter=A', `${base}..HEAD`)
 const addedAll = git('diff', '--name-only', '--diff-filter=A', `${base}..HEAD`).split('\n').filter(Boolean);
 
 const exemptions = [];
+const crashAccepted = [];
 for (const message of git('log', `${base}..HEAD`, '--pretty=%B%x01').split('\u0001')) {
   for (const m of message.matchAll(/^red-check-exempt:\s*(\S+)\s*(?:—|--)\s*(.+)$/gm)) {
     exemptions.push({ path: m[1], reason: m[2].trim() });
+  }
+  for (const m of message.matchAll(/^crash-red-accepted:\s*(\S+)\s*(?:—|--)\s*(.+)$/gm)) {
+    crashAccepted.push({ path: m[1], reason: m[2].trim() });
   }
 }
 
@@ -142,6 +154,18 @@ function classify(status, out) {
   const hardCrash =
     /Cannot find module|Failed to resolve import|relation "[^"]+" does not exist|schema "[^"]+" does not exist|column "[^"]+" does not exist/i;
   if (hardCrash.test(out)) return { verdict: 'crash-red', why: out.match(hardCrash)?.[0] };
+  // The DISCRIMINATOR is the error CLASS vitest prints above the code frame, not a
+  // substring of the frame. vitest echoes the failing line, so `expect(x).toBe(y)`
+  // appears in the output of a CRASH as well — which is how this gate reported a
+  // plain `TypeError: f is not a function` as `assertion-red`, its strongest
+  // verdict, for a run that never evaluated an expectation. An AssertionError
+  // anywhere means some test really did reach an assertion and fail it; any other
+  // error class with no AssertionError beside it means none did.
+  const errorClasses = [...out.matchAll(/^\s*(?:FAIL\s+)?([A-Za-z]*Error)\s*:/gm)].map((m) => m[1]);
+  const crashClass = errorClasses.find((c) => c !== 'AssertionError');
+  if (crashClass && !errorClasses.includes('AssertionError')) {
+    return { verdict: 'crash-red', why: `${crashClass} — the run never reached an assertion` };
+  }
   // A failed assertion inside a test body is the strong result; prefer it over a
   // softer crash match, because a crash string can also appear in an assertion diff.
   if (/\d+ failed/.test(out) && assertion.test(out) && !/Unhandled Error/.test(out)) return { verdict: 'assertion-red' };
@@ -199,6 +223,28 @@ if (counts['crash-red']) {
   console.log(`   ${counts['crash-red']} of them are crash-red: they prove "cannot pass without the branch",`);
   console.log('   not "asserts the right thing". Prefer assertion-red where you can.');
 }
+// --- crash-red is not a proof on its own -----------------------------------
+// A crash-red file proves "this file cannot run without the branch". A test whose
+// body is `expect(1).toBe(1)` proves that too, as soon as it imports anything the
+// branch adds — so a ticket proved ENTIRELY by crash-red files is not proved by
+// this gate at all. One assertion-red file is enough to show the suite can see
+// behaviour; a ticket that genuinely cannot produce one declares each file.
+const crashRedFiles = results.filter((r) => r.verdict === 'crash-red');
+if (results.length && !counts['assertion-red'] && crashRedFiles.length) {
+  const undeclared = crashRedFiles.filter((r) => !crashAccepted.some((a) => a.path === r.spec));
+  if (undeclared.length) {
+    failures.push(
+      'every added test file is crash-red and none fails on an assertion. crash-red proves only that\n' +
+        '      a file cannot IMPORT this branch — a test asserting nothing clears that bar. Make at least\n' +
+        '      one file fail on an assertion, or declare each one:\n' +
+        undeclared.map((r) => `        crash-red-accepted: ${r.spec} — <why no assertion is reachable at the base>`).join('\n'));
+  } else {
+    console.log(`\n⚠  all ${crashRedFiles.length} added file(s) are crash-red, each explicitly accepted:`);
+    for (const a of crashAccepted) console.log(`     ${a.path} — "${a.reason}"`);
+    console.log('   The declaration excuses the verdict, not the reasoning. A reviewer must check it.');
+  }
+}
+
 if (failures.length) {
   for (const f of failures) console.log(`✗  ${f}`);
   console.log(`\nred-check: FAIL — ${failures.length} problem(s)`);
