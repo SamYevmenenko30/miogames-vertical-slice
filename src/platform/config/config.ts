@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { hostname } from 'node:os';
 import { z } from 'zod';
 
 /**
@@ -38,6 +40,19 @@ const schema = z.object({
   PORT: count(3000),
   WORKER_HEALTH_PORT: count(3002),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+
+  /**
+   * Who this process is, for every claim it takes on a shared row: the outbox
+   * relay's and the issuance lease's.
+   *
+   * It was `${process.pid}` until the round-two review measured two worker
+   * containers that were BOTH pid 25 — a container has its own PID namespace, so
+   * replicas collide as a matter of course, and a claim could not name the worker
+   * holding it. Set it to the pod name in a cluster; the default is unique per
+   * process anyway, because a wrong answer here is a money write-back landing on
+   * somebody else's row.
+   */
+  INSTANCE_ID: z.string().min(1).optional(),
 
   DATABASE_URL: z.string().min(1).refine((value) => URL.canParse(value), 'must be a valid connection string'),
   /**
@@ -83,6 +98,7 @@ export type AppConfig = Readonly<{
   port: number;
   workerHealthPort: number;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
+  instanceId: string;
   databaseUrl: string;
   databaseOwnerUrl: string;
   databasePoolMax: number;
@@ -120,6 +136,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     port: e.PORT,
     workerHealthPort: e.WORKER_HEALTH_PORT,
     logLevel: e.LOG_LEVEL,
+    // Three parts, and each earns its place: the host says where to look, the pid
+    // makes it readable in a shell on that host, and the random tail is the only
+    // part that is actually guaranteed unique — a container's pid is not.
+    instanceId: e.INSTANCE_ID ?? `${hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`,
     databaseUrl: e.DATABASE_URL,
     databaseOwnerUrl: e.DATABASE_OWNER_URL ?? e.DATABASE_URL,
     databasePoolMax: e.DATABASE_POOL_MAX,

@@ -7,10 +7,16 @@
 -- Found by review; `rewards/AGENTS.md` had claimed the opposite.
 --
 -- The fix is the same shape the outbox already uses for the same problem: the
--- claim takes a LEASE, and a claim that goes stale is re-claimable. Re-attempting
--- is safe because the operator call carries `redemption:<id>` as its idempotency
--- key, so an operator that already granted the reward returns the same reference
--- rather than granting a second one.
+-- claim takes a LEASE, and a claim that goes stale is re-claimable.
+--
+-- This comment used to end "re-attempting is safe because the operator call
+-- carries `redemption:<id>` as its idempotency key, so an operator that already
+-- granted the reward returns the same reference rather than granting a second
+-- one". That was a promise about somebody else's system, and the round-two review
+-- measured it false inside this one: neither simulated operator keeps a key store,
+-- so a re-claim grants twice. The claim is instead RECORDED before the operator is
+-- asked — see migration 0013 and TD-0011 — so a recovery can be reconciled rather
+-- than being mistaken for a clean first attempt.
 alter table rewards.redemption
   add column claimed_at timestamptz,
   add column claimed_by text;

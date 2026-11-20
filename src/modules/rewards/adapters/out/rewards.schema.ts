@@ -34,6 +34,15 @@ export const redemption = rewards.table(
     /** The issuance LEASE: who is issuing this, and since when (database clock). */
     claimedAt: timestamp('claimed_at', { withTimezone: true }),
     claimedBy: text('claimed_by'),
+    /**
+     * How many times a worker has claimed this redemption in order to ask the
+     * operator for the grant, and when the last of those claims happened.
+     * Written by the claim, which commits before the call goes out, so it
+     * survives the process being killed during it. More than one on an `issued`
+     * row means the operator may have granted twice — see migration 0013.
+     */
+    grantRequests: integer('grant_requests').notNull().default(0),
+    grantRequestedAt: timestamp('grant_requested_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
   },

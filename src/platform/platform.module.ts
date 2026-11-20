@@ -2,7 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { AuditLog } from './audit/audit-log';
 import { CLOCK, SystemClock, type Clock } from './clock/clock';
 import { APP_CONFIG, loadConfig, type AppConfig } from './config/config';
-import { createDatabase, DATABASE, OWNER_DATABASE, type Database } from './db/database';
+import { createDatabase, DatabasePools, DATABASE, OWNER_DATABASE, type Database } from './db/database';
 import { JobUnitOfWork, UnitOfWork } from './db/unit-of-work';
 import { EVENT_BUS, OutboxEventBus } from './events/outbox';
 import { createLogger, LOGGER } from './observability/logger';
@@ -34,6 +34,15 @@ import { createLogger, LOGGER } from './observability/logger';
       provide: JobUnitOfWork,
       inject: [OWNER_DATABASE],
       useFactory: (database: Database) => new JobUnitOfWork(database),
+    },
+    {
+      // Nothing injects this; it exists to carry the shutdown hook the two pools
+      // cannot carry themselves. Nest instantiates every provider at init and
+      // calls `onApplicationShutdown` on each, so being unreferenced is fine —
+      // being a plain object, as the pools are, was not.
+      provide: DatabasePools,
+      inject: [DATABASE, OWNER_DATABASE],
+      useFactory: (database: Database, owner: Database) => new DatabasePools([database, owner]),
     },
     {
       provide: EVENT_BUS,

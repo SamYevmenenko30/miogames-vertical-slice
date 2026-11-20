@@ -38,6 +38,20 @@
  * Honest limits
  *   - A crash-red proves "cannot pass without the branch", not "asserts the
  *     right thing". Prefer tests that fail on an assertion.
+ *   - And `assertion-red` proves only that an AssertionError happened at the
+ *     base. It does NOT prove that the assertion observed anything this branch
+ *     does. `expect(existsSync('src/the-new-file.ts')).toBe(true)` fails at the
+ *     base, passes here, and earns this gate's strongest verdict while guarding
+ *     nothing at all — measured, beside a deliberately broken implementation and
+ *     two other worthless tests, all green. The verdict is about the RUN. Whether
+ *     the assertion is about the BEHAVIOUR is a judgement only a reader makes,
+ *     and this gate cannot make it for them.
+ *   - It measures the test files a branch ADDS. A new `it(...)` inside a spec file
+ *     that already existed is never run at the merge-base, so the strongest claim
+ *     in this pipeline does not cover it. Every test of the first fix round
+ *     entered that way. The run below NAMES those files so the gap is at least
+ *     visible, and `test-guard` requires a `test-fix:` declaration for each — but
+ *     a declaration is a sentence, not a measurement. TD-0012.
  *   - node_modules is borrowed, so a test that writes through it reaches the
  *     current tree. Running the branch's test code IS the measurement; what the
  *     reset buys is that every channel not requiring that is closed.
@@ -81,7 +95,26 @@ for (const message of git('log', `${base}..HEAD`, '--pretty=%B%x01').split('\u00
   }
 }
 
+/**
+ * Spec files this branch MODIFIED. This gate cannot measure them — it stages one
+ * added file into a clean base worktree, and a modified file's new cases only
+ * exist in the context of the rest of that file — so the least it can do is say
+ * which ones, rather than printing a verdict that sounds like it covered them.
+ * (`test-guard` demands a declaration for each; a declaration is not a
+ * measurement. TD-0012.)
+ */
+const modifiedSpecs = git('diff', '--name-status', '--diff-filter=M', `${base}..HEAD`)
+  .split('\n').filter(Boolean)
+  .map((l) => l.split('\t')[1])
+  .filter((p) => /\.spec\.ts$/.test(p ?? ''));
+
 console.log(`\nred-check — base ${base.slice(0, 8)}, ${added.length} added test file(s)\n`);
+if (modifiedSpecs.length) {
+  console.log(`⚠  ${modifiedSpecs.length} spec file(s) were MODIFIED, not added. This gate measures ADDED files, so`);
+  console.log('   any test case added inside these was never run at the merge-base (TD-0012):');
+  for (const p of modifiedSpecs) console.log(`     ${p}`);
+  console.log('');
+}
 if (!added.length) {
   if (requireTests) {
     console.log('✗  this branch adds no test file, and --require-tests was given.');
@@ -223,26 +256,36 @@ if (counts['crash-red']) {
   console.log(`   ${counts['crash-red']} of them are crash-red: they prove "cannot pass without the branch",`);
   console.log('   not "asserts the right thing". Prefer assertion-red where you can.');
 }
-// --- crash-red is not a proof on its own -----------------------------------
+// --- crash-red is not a proof on its own, PER FILE --------------------------
 // A crash-red file proves "this file cannot run without the branch". A test whose
 // body is `expect(1).toBe(1)` proves that too, as soon as it imports anything the
-// branch adds — so a ticket proved ENTIRELY by crash-red files is not proved by
-// this gate at all. One assertion-red file is enough to show the suite can see
-// behaviour; a ticket that genuinely cannot produce one declares each file.
+// branch adds — so a crash-red file is not proved by this gate, and has to be
+// declared.
+//
+// This rule used to be an AGGREGATE: it fired only when NO file in the ticket was
+// assertion-red. One assertion-red file therefore switched it off for every
+// crash-red sibling, undeclared — and the review drove exactly that through, with
+// a deliberately broken implementation, a file-existence assertion as the licence,
+// and two worthless tests beside it. Per file, because the question "was this
+// file's redness worth anything?" is about that file and nothing else.
 const crashRedFiles = results.filter((r) => r.verdict === 'crash-red');
-if (results.length && !counts['assertion-red'] && crashRedFiles.length) {
-  const undeclared = crashRedFiles.filter((r) => !crashAccepted.some((a) => a.path === r.spec));
-  if (undeclared.length) {
-    failures.push(
-      'every added test file is crash-red and none fails on an assertion. crash-red proves only that\n' +
-        '      a file cannot IMPORT this branch — a test asserting nothing clears that bar. Make at least\n' +
-        '      one file fail on an assertion, or declare each one:\n' +
-        undeclared.map((r) => `        crash-red-accepted: ${r.spec} — <why no assertion is reachable at the base>`).join('\n'));
-  } else {
-    console.log(`\n⚠  all ${crashRedFiles.length} added file(s) are crash-red, each explicitly accepted:`);
-    for (const a of crashAccepted) console.log(`     ${a.path} — "${a.reason}"`);
-    console.log('   The declaration excuses the verdict, not the reasoning. A reviewer must check it.');
+const undeclaredCrashRed = crashRedFiles.filter((r) => !crashAccepted.some((a) => a.path === r.spec));
+if (undeclaredCrashRed.length) {
+  failures.push(
+    `${undeclaredCrashRed.length} added test file(s) are crash-red and undeclared. crash-red proves only that\n` +
+      '      a file cannot IMPORT this branch — a test asserting nothing clears that bar, so none fails on\n' +
+      '      an assertion that this gate can vouch for. Make each one fail on an assertion, or declare it:\n' +
+      undeclaredCrashRed.map((r) => `        crash-red-accepted: ${r.spec} — <why no assertion is reachable at the base>`).join('\n') +
+      (counts['assertion-red']
+        ? '\n      (An assertion-red sibling does not cover these. It used to, which is the defect being fixed.)'
+        : ''));
+} else if (crashRedFiles.length) {
+  console.log(`\n⚠  ${crashRedFiles.length} added file(s) are crash-red, each explicitly accepted:`);
+  for (const r of crashRedFiles) {
+    const accepted = crashAccepted.find((a) => a.path === r.spec);
+    console.log(`     ${r.spec} — "${accepted.reason}"`);
   }
+  console.log('   The declaration excuses the verdict, not the reasoning. A reviewer must check it.');
 }
 
 if (failures.length) {

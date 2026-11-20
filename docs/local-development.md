@@ -30,9 +30,20 @@ pnpm test:unit          # no I/O, runs anywhere
 
 ## Why migrations never run at boot
 
-Two replicas starting at the same time race each other through the same migration. The deploy
-applies migrations as its own step; the application only verifies that the schema version it
-needs is present and refuses to start otherwise.
+Two replicas starting at the same time race each other through the same migration. So the deploy
+applies migrations as its own step, and `pnpm db:migrate` is the only thing that ever applies one.
+
+What the application does about it is narrower than this paragraph used to claim — it said the
+application "only verifies that the schema version it needs is present and refuses to start
+otherwise", and it does neither. `src/main.api.ts` creates the app and listens; there is no
+required-version constant and no refusal. What exists is `GET /health`, which **reports** the
+newest applied version and answers 503 if it cannot read the migrations table, and
+`HealthController`'s own comment is the accurate description: "this endpoint reports what was
+applied, so a wrong answer is visible rather than silently corrected". Started against an
+unmigrated database the api listens and serves `{"ok":false,"schemaVersion":null,"role":"api"}`,
+which is what an orchestrator's readiness probe is for. A real deployment would add the refusal —
+it is one
+constant and one query — and until it does, this paragraph says what the code does.
 
 ## Integration tests and the database
 

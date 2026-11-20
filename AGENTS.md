@@ -12,10 +12,14 @@ real file the agent followed, not a sanitised copy.
    [docs/process.md](docs/process.md).
 2. **A test you cannot see fail is not a test.** `pnpm red-check` must prove every test file the
    branch adds fails at the merge-base. If a test passes without the implementation, delete it or
-   fix it — do not explain it. Know what the verdict is worth: `crash-red` only proves the file
-   cannot *import* the branch, which a test asserting nothing also achieves, so the gate requires
-   at least one `assertion-red` file per ticket and makes an all-`crash-red` ticket declare each
-   file explicitly. Aim for `assertion-red`.
+   fix it — do not explain it. Know what each verdict is worth, because neither is worth as much
+   as it reads: `crash-red` only proves the file cannot *import* the branch, which a test asserting
+   nothing also achieves, so **every** crash-red file must be declared (it used to be one
+   declaration per ticket, and one `assertion-red` sibling switched the rule off for all of them);
+   and `assertion-red` only proves that an assertion failed, not that it observed anything the
+   branch does — `expect(existsSync('…new file…')).toBe(true)` earns it while guarding nothing.
+   Aim for `assertion-red` and then read the test. Also: the gate measures added FILES, so cases
+   added inside an existing spec are never measured — it names those files, TD-0012 is the fix.
 3. **Spec tests are read-only while implementing.** If the spec is wrong, stop and commit the
    disagreement as `spec-conflict: <S-id> — <what the spec gets wrong>`. Never edit a spec test
    to make it pass.
@@ -44,7 +48,7 @@ real file the agent followed, not a sanitised copy.
 | `pnpm verify` | lint + typecheck + arch-check + board:check + docs-links + spec-gate + test-guard + unit + integration + build + smoke — eleven gates, cheapest first. The pre-push check. |
 | `pnpm spec-gate MIO-003` | The spec exists, has `S`-ids, has no unanswered open question, and has a card. |
 | `pnpm red-check` | Every test file added on this branch fails at the merge-base, each on its own, in a clean worktree. |
-| `pnpm test-guard` | No pre-existing spec test was modified without a `spec-conflict:` commit. |
+| `pnpm test-guard` | No spec test was modified, deleted, renamed-and-edited, or left `.only`/`.skip`-ped, without a declaration: `spec-conflict:`, `test-fix:`, `test-removed:` or `test-skipped:` (`.only` has no declaration — it silences its siblings). |
 | `pnpm arch-check` | The source tree matches `docs/architecture/architecture.yaml`. |
 | `pnpm docs-links` | Every relative markdown link resolves. |
 | `pnpm board` / `pnpm board:check` | Print the board / enforce card ↔ folder, WIP limit, ticket trailers. |

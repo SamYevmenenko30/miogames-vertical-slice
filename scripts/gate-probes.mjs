@@ -28,8 +28,8 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { COLUMNS, ROOT, sh, trySh } from './lib/util.mjs';
+import { dirname, join, relative } from 'node:path';
+import { COLUMNS, ROOT, sh, trySh, walk } from './lib/util.mjs';
 
 const WT = join(ROOT, '.tmp', `probe-wt-${process.pid}`);
 const filter = process.argv.slice(2).find((a) => !a.startsWith('-'));
@@ -57,9 +57,10 @@ const commit = (msg) => {
  * the moment those cards moved to another column — a probe that cannot run is a
  * gate that is no longer probed.
  */
-function someCards(count) {
+function someCards(count, { exclude = [] } = {}) {
   const found = [];
   for (const column of COLUMNS) {
+    if (exclude.includes(column)) continue;
     const dir = join(WT, 'board', column);
     let entries = [];
     try { entries = readdirSync(dir); } catch { continue; }
@@ -71,6 +72,19 @@ function someCards(count) {
   }
   if (found.length < count) throw new Error(`gate-probes needs ${count} cards on the board, found ${found.length}`);
   return found;
+}
+
+/**
+ * Any spec file in the tree, for the probes that need an EXISTING one to modify.
+ *
+ * Found rather than named, for the same reason `someCards` finds its cards: a
+ * probe that names a path stops running the day that path moves, and a probe that
+ * cannot run is a gate that is no longer probed.
+ */
+function someSpecFile() {
+  const found = walk(join(WT, 'src')).find((f) => f.endsWith('.spec.ts') && !f.includes('node_modules'));
+  if (!found) throw new Error('gate-probes needs at least one existing *.spec.ts in src/');
+  return relative(WT, found);
 }
 
 /** A module skeleton, so a boundary probe has somewhere legal to stand. */
@@ -322,7 +336,15 @@ const probes = [
     expect: /WIP limit is 1/i,
     plant() {
       mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
-      for (const card of someCards(2)) {
+      // Sources from anywhere BUT the destination. A card already in
+      // `3-in-progress` has the same source and destination path here, so the
+      // write-then-remove below deleted it — leaving one card in the column (no
+      // violation) and every `Ticket:` trailer naming a card that no longer
+      // existed. The probe then failed for a reason that had nothing to do with
+      // the WIP limit, which is the same way round as `board/column-drift`
+      // already guards against. It went unnoticed while every card sat in
+      // `5-done`, and the first card to enter `3-in-progress` found it.
+      for (const card of someCards(2, { exclude: ['3-in-progress'] })) {
         const text = readFileSync(card.path, 'utf8').replace(/^column: .*$/m, 'column: 3-in-progress');
         writeFileSync(join(WT, 'board/3-in-progress', card.name), text);
         rmSync(card.path);
@@ -364,6 +386,75 @@ const probes = [
       write('src/probe-added-then-bent.spec.ts',
         `import { expect, it } from 'vitest';\n\nit('S1 — probe', () => { expect(compute()).toBe(4); });\n`);
       commit('fix: make it pass\n');
+      return base;
+    },
+  },
+  {
+    name: 'test-guard/a-spec-test-deleted-without-a-declaration',
+    gate: ['node', ['scripts/test-guard.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // The gate used to print "no test file was modified after it was written" over
+    // a `git rm` of thirteen tests. True, and the most misleading sentence it
+    // could have chosen: `pnpm verify` was green BECAUSE they were gone.
+    expect: /was DELETED on this branch with no declaration/i,
+    plant() {
+      write('src/probe-deleted.spec.ts', `import { expect, it } from 'vitest';\n\nit('S1 — probe', () => { expect(1).toBe(1); });\n`);
+      const base = commit('test: probe baseline\n');
+      rmSync(join(WT, 'src/probe-deleted.spec.ts'));
+      commit('chore: delete the inconvenient test\n');
+      return base;
+    },
+  },
+  {
+    name: 'test-guard/a-spec-test-renamed-and-edited-in-one-commit',
+    gate: ['node', ['scripts/test-guard.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // Git reports this as `R0xx` — it is saying in the STATUS itself that the file
+    // was modified — and the gate's filters saw neither the `R` nor the new path.
+    // The body is long and the edit is one character, so the rename is detected at
+    // a high similarity: that is the case where the gate's blindness is worst,
+    // because the diff is at its most obviously a bent test.
+    expect: /was modified on this branch with no declaration/i,
+    plant() {
+      const body = (expected) =>
+        `import { expect, it } from 'vitest';\n\n` +
+        `const compute = (n: number): number => n + 1;\n\n` +
+        Array.from({ length: 12 }, (_, i) => `it('S${i + 1} — probe case ${i + 1}', () => { expect(compute(${i})).toBe(${i + 1}); });`).join('\n') +
+        `\n\nit('S99 — the one being bent', () => { expect(compute(2)).toBe(${expected}); });\n`;
+      write('src/probe-renamed.spec.ts', body(3));
+      const base = commit('test: probe baseline\n');
+      rmSync(join(WT, 'src/probe-renamed.spec.ts'));
+      write('src/probe-renamed-v2.spec.ts', body(4));
+      commit('refactor: rename the spec (and make it pass)\n');
+      return base;
+    },
+  },
+  {
+    name: 'test-guard/a-committed-only-silences-its-siblings',
+    gate: ['node', ['scripts/test-guard.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    expect: /disables every other test in the file/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-only.spec.ts',
+        `import { expect, it } from 'vitest';\n\n` +
+        `it.only('S1 — the only one that runs now', () => { expect(1).toBe(1); });\n` +
+        `it('S2 — silently skipped', () => { expect(1).toBe(2); });\n`);
+      commit('test: a committed .only\n');
+      return base;
+    },
+  },
+  {
+    name: 'test-guard/a-committed-skip-asserts-nothing',
+    gate: ['node', ['scripts/test-guard.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    expect: /without asserting anything/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-skip.spec.ts',
+        `import { expect, it } from 'vitest';\n\n` +
+        `it.skip('S1 — probe', () => { expect(1).toBe(2); });\n`);
+      commit('test: a spec whose only case is skipped\n');
       return base;
     },
   },
@@ -426,13 +517,13 @@ const probes = [
     },
   },
   {
-    name: 'red-check/an-all-crash-red-ticket-does-not-pass-on-crash-red-alone',
+    name: 'red-check/a-crash-red-file-does-not-pass-on-crash-red-alone',
     gate: ['node', ['scripts/red-check.mjs']],
     expectEnv: (base) => ({ MIO_BASE_REF: base }),
     // crash-red means "this file cannot run without the branch", which a test
-    // asserting nothing also achieves. A ticket proved ENTIRELY that way is not
-    // proved, and must either produce one assertion-red file or declare each one.
-    expect: /none fails on an assertion/i,
+    // asserting nothing also achieves. Such a file is not proved by this gate and
+    // has to be declared.
+    expect: /crash-red and undeclared/i,
     plant() {
       const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
       write('src/probe-crash-module.ts', `export const f = (): number => 1;\n`);
@@ -464,6 +555,47 @@ const probes = [
       commit('test: a spec whose base run crashes before any assertion\n\n' +
         'crash-red-accepted: src/probe-typeerror.spec.ts — the helper arrives with the branch, so ' +
         'the call cannot reach an assertion at the base\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/an-assertion-red-sibling-does-not-excuse-an-undeclared-crash-red',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // The rule was an AGGREGATE: it fired only when NO file was assertion-red, so
+    // ONE assertion-red file switched it off for every crash-red sibling,
+    // undeclared. The review drove a broken implementation and three worthless
+    // tests through that gap. The licence here is the same one it used — an
+    // assertion that observes nothing but the existence of a file.
+    expect: /crash-red and undeclared/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-composite-module.ts', `export const f = (): number => 1;\n`);
+      write('src/probe-composite-licence.spec.ts',
+        `import { existsSync } from 'node:fs';\nimport { expect, it } from 'vitest';\n\n` +
+        `it('S1 — the new file exists', () => { expect(existsSync('src/probe-composite-module.ts')).toBe(true); });\n`);
+      write('src/probe-composite-vacuous.spec.ts',
+        `import { expect, it } from 'vitest';\nimport { f } from './probe-composite-module';\n\n` +
+        `it('S2 — probe', () => { expect(typeof f).toBe('function'); });\n`);
+      commit('test: one file-existence assertion licensing a vacuous sibling\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/names-the-modified-spec-files-it-cannot-measure',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // The gate must ACCEPT this — it is not a violation, it is a limit — and it
+    // must say so out loud. Cases added into an existing spec file are the one
+    // route into this repository that the strongest gate in the pipeline never
+    // measured, and it used to pass them in silence. TD-0012.
+    expectPass: true,
+    expect: /were MODIFIED, not added/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      const spec = someSpecFile();
+      append(spec, `\nit('S99 — a case added into an existing spec file', () => { expect(1).toBe(1); });\n`);
+      commit(`test: a case added into ${spec}\n\ntest-fix: ${spec} — the probe appends a case to an existing spec file\n`);
       return base;
     },
   },

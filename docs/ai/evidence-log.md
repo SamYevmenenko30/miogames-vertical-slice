@@ -63,6 +63,11 @@ were *in* the things that read the diff.
 | `test-guard` could not see a test added and then bent **within the same branch** | `git diff base..HEAD` calls that file merely "added". It is the common case when one branch carries all three phases, which is the shape this pipeline uses |
 | `spec-gate` and `board:check` disagreed about a spec waiver | `verify` contradicted itself, which teaches people to ignore whichever gate is noisier |
 | A relative markdown link in the 90-day plan pointed at a file that is one directory up | Found by writing the `docs-links` gate at the end of the work, which found it in a document written minutes earlier. These documents cross-reference heavily, so the links rot exactly as fast as the prose |
+| `test-guard` inspected `M` and added-then-bent, and nothing else | A `git rm` of a spec file passed while the gate printed "no test file was modified after it was written", and `pnpm verify` was green because the tests were gone. A rename-with-edit passed both `test-guard` and `red-check` — and git reports it as `R098`, which is the status itself saying the file was modified. Deleting a test is strictly easier than bending one, so the gate was guarding the hardest route and leaving the easy ones open (round-two review R2-B3) |
+| Nothing anywhere checked for `.only`, `.skip` or `.todo` | A committed `.only` silences every sibling in its file and a committed `.skip` satisfies `pnpm verify` while asserting nothing. Both are the failure `test-guard` exists for, reached without touching a single assertion. Found by reading the gate set for something it did not cover, which is the only way this one could have been found |
+| `red-check`'s "crash-red must be declared" rule was an AGGREGATE | One `assertion-red` file switched it off for every undeclared crash-red sibling. Measured: a deliberately broken implementation plus a file-existence assertion, an all-`it.skip` spec and a `typeof === 'function'` tautology passed `red-check`, passed `test-guard`, and left the suite green (R2-B4). The single-file case had been closed by the first fix round; the composite case was created by closing it |
+| `assertion-red` is awarded on the error CLASS alone | So `expect(existsSync('…a file the branch adds…')).toBe(true)` earns the gate's strongest verdict while observing nothing the branch does. The honest-limits block at the top of that file warned about `crash-red` and not about this, which made the strongest verdict the least examined one |
+| `red-check` measures added FILES | Every test of the first fix round — the only evidence that two blockers were closed — was added into a spec file that already existed, so none of them ever faced the gate whose purpose is to prove a test is real. They were good tests; the pipeline is what failed to establish it. Now named on every run; TD-0012 is the fix |
 
 ### In the product (found by the gates, not by review)
 
@@ -106,7 +111,18 @@ issuance and tenant isolation — the three tickets whose evidence a reviewer wo
 - **`red-check` proves a test fails without the implementation, not that it asserts the right
   thing.** A test that crashes at the merge-base because the module does not exist yet counts as
   red; the gate labels it `crash-red` and says it proves less. Most of the early tickets are
-  crash-red for exactly that reason.
+  crash-red for exactly that reason. The round-two review added the half of this bullet that was
+  missing: `assertion-red` proves only that an assertion failed, not that it was about this
+  branch, so the gate's strongest verdict is still a verdict about a RUN and never about
+  relevance. And it measures added files, so cases added into an existing spec are outside it
+  entirely (TD-0012) — which is how every test of the first fix round got in.
+- **Two review rounds, and the second one is why this list is longer.** The first review's fixes
+  were written by the session that had found the defects, so they had no adversary: round two
+  re-measured all 25 of its findings and then attacked the fixes, finding four blockers of which
+  two were money defects the fix itself introduced (a stale lease holder refunding an issued
+  reward; a recovery asking the operator to grant twice and recording it as a clean success). The
+  mechanism that worked is the separation, not the reviewing: the same move — review, fix, review
+  the fix with a session that cannot see its own reasoning — is what produced both lists.
 - **No branch audit.** The larger pipeline this is modelled on has a gate that reads a branch's
   prose against its diff. It is not here, and it would have caught one thing it should have: two
   module `AGENTS.md` files contradicting each other about an idempotency idiom (MIO-008). I fixed
