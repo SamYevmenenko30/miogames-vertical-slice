@@ -266,6 +266,16 @@ proves only that an `AssertionError` happened somewhere.
 
 ## Should-fix
 
+> **State at submission** (the only annotation on this document; the findings are as they were
+> written). Closed: S1 and S2 (SIGTERM and the pool close — `main.worker.ts` shuts down on the
+> signal and `db:seed` now exits), S3 and S13 (both prose claims corrected), S4 (`pnpm smoke`
+> leaves the tree clean; `smoke:samples` rewrites the samples), S5 (a `.dockerignore`, and the
+> container path checked end to end), S7 (`arch-check` reads the modules directory), S9
+> (`claimed_by` is `<instanceId>/<uuid>` from configuration), S14 (`docs-links` runs in CI).
+> In the ledger rather than fixed: S11 → TD-0013, S10 → TD-0014, S8 → TD-0015, S12 → TD-0016,
+> S6 → TD-0017, each with what it would cost. The nits are left as written.
+
+
 ### S1 — The worker never exits on `SIGTERM`; every stop is a `SIGKILL`, which is the event that triggers R2-B1
 
 `src/platform/platform.module.ts:20-37`, `src/main.worker.ts:59-66`
