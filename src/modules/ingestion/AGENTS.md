@@ -6,8 +6,11 @@ nothing about rewards.
 ## Invariants this module enforces
 
 - Deduplication is the primary key of `ingestion.dedup`, claimed with
-  `ON CONFLICT DO UPDATE ... RETURNING` so the winner comes back whether we claimed it or not.
-  `DO NOTHING` would return no row for a duplicate and force a second read, which can itself race.
+  `ON CONFLICT DO UPDATE ... RETURNING` so the winner comes back in one statement whether we
+  claimed it or not. `DO NOTHING` would return no row for a duplicate and force a second read —
+  which is safe under READ COMMITTED but is one more statement to reason about. (`ledger.entry`
+  has to do it the other way, because its append-only trigger refuses a `DO UPDATE`; both are
+  correct, and the difference is the trigger, not a disagreement.)
 - The envelope, the dedup claim and the outbox row are written in **one** transaction. There is
   no state in which an event was emitted but not recorded, or claimed but not emitted.
 - An envelope is stored for every authenticated request, whatever the outcome, before
