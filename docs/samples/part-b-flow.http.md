@@ -17,11 +17,11 @@ content-type: application/json; charset=utf-8
 
 {
   "event": "deposit.completed",
-  "event_id": "a-550a2295-636d-4027-b9fc-bcd934dafa4c",
+  "event_id": "a-59d60583-81ab-4dde-bb47-a2d1db5c9662",
   "user_id": "player-casino-a",
   "amount": "50.00",
   "currency": "EUR",
-  "occurred_at": "2026-11-20T14:40:45.043Z"
+  "occurred_at": "2026-11-20T14:54:06.006Z"
 }
 ```
 
@@ -30,11 +30,11 @@ content-type: application/json; charset=utf-8
 ```http
 POST /v1/ingest/casino-a/events HTTP/1.1
 content-type: application/json
-x-mio-timestamp: 1795185645
-x-mio-signature: e2435c69090fd03d64d04a389510564b074569ef647b4f96f72e0e80bfc4aaf5
+x-mio-timestamp: 1795186446
+x-mio-signature: bd05276cb495508208510908addcf4a62b950a1dc438813a45896360d656da27
 x-mio-key-id: key-casino-a
 
-{"event":"deposit.completed","event_id":"a-550a2295-636d-4027-b9fc-bcd934dafa4c","user_id":"player-casino-a","amount":"50.00","currency":"EUR","occurred_at":"2026-11-20T14:40:45.043Z"}
+{"event":"deposit.completed","event_id":"a-59d60583-81ab-4dde-bb47-a2d1db5c9662","user_id":"player-casino-a","amount":"50.00","currency":"EUR","occurred_at":"2026-11-20T14:54:06.006Z"}
 ```
 
 ```http
@@ -43,7 +43,7 @@ content-type: application/json; charset=utf-8
 
 {
   "status": "accepted",
-  "eventId": "09a559ab-54ec-45bd-abba-85d5026f0d65"
+  "eventId": "356cc3df-8354-4750-9180-f656e8994a51"
 }
 ```
 
@@ -62,7 +62,7 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "token": "eyJ0IjoidGVuYW50LWEiLCJwIjoiMTdmYWQzNzYtZmI0YS00MDUyLWIzOWEtYWI3Nzc5YjhlNWU2IiwiZXhwIjoxNzk1MTg5MjQ1fQ.705b9f7cbcb42eee770d6f3d69f81bb5d8f8bf3397b70bf0b9bf4cf7e0cb3cd4",
+  "token": "eyJ0IjoidGVuYW50LWEiLCJwIjoiNzQ0ODhlNWQtZjEyMS00YTlkLTk1YTMtODQzNjM4NWNjNWJmIiwiZXhwIjoxNzk1MTkwMDQ2fQ.aad4e88aa2dcee17e4396971de051e2998584548e14bdedd67a79aa1c0d8e6e1",
   "expiresInSeconds": 3600
 }
 ```
@@ -82,20 +82,20 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "spinId": "0c8d459a-ff70-4932-a55b-d3d259c6f14e",
+  "spinId": "b7fb4f82-e2e5-4a30-aabc-0eaf710b4abc",
   "wheelId": "welcome",
   "wheelVersion": 1,
-  "sliceId": "coins-50",
+  "sliceId": "free-spins-10",
   "prize": {
-    "kind": "coins",
-    "amount": 50
+    "kind": "free_spins",
+    "count": 10
   },
-  "coinsCredited": 50,
-  "balance": 50,
+  "coinsCredited": 0,
+  "balance": 0,
   "remainingSpins": 1,
   "fairness": {
-    "seed": "c0ba081b8aded76430aa333cff978da05facc19dae84a365913fea5609193090",
-    "seedHash": "66ecc2a22e1b3badcaf663212f8893ab97543f190108e7e077116e277a1a96b5",
+    "seed": "0950279a402ad2c50576501c0ef4bebb0122b66c418378ed91c541a9032fc0c4",
+    "seedHash": "9c2b654d79cc4af519080ef09cd8f3e298454f01df60b06545eaf3253ee516fa",
     "wheelVersion": 1
   }
 }
@@ -143,7 +143,7 @@ HTTP/1.1 202
 content-type: application/json; charset=utf-8
 
 {
-  "redemptionId": "10176e58-2066-4548-b639-79f9affb5ac0",
+  "redemptionId": "01194343-82a2-4dd3-9005-9b3c1811a480",
   "status": "pending_issuance",
   "itemId": "free-spins-50",
   "price": 100
@@ -153,7 +153,7 @@ content-type: application/json; charset=utf-8
 ## casino-a — GET /v1/redemptions/:id (issued)
 
 ```http
-GET /v1/redemptions/10176e58-2066-4548-b639-79f9affb5ac0 HTTP/1.1
+GET /v1/redemptions/01194343-82a2-4dd3-9005-9b3c1811a480 HTTP/1.1
 authorization: [redacted]
 ```
 
@@ -162,7 +162,7 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "redemptionId": "10176e58-2066-4548-b639-79f9affb5ac0",
+  "redemptionId": "01194343-82a2-4dd3-9005-9b3c1811a480",
   "status": "issued",
   "itemId": "free-spins-50",
   "price": 100,
@@ -172,9 +172,9 @@ content-type: application/json; charset=utf-8
   },
   "attempts": 0,
   "lastError": null,
-  "externalRef": "A-14e6c56f-b99b-4d39-ace9-1d62df5de39d",
-  "createdAt": "2026-11-20T14:40:45.663Z",
-  "updatedAt": "2026-11-20T14:40:45.790Z"
+  "externalRef": "A-a49b81c1-cbc9-4e08-871b-101d5c4a50b4",
+  "createdAt": "2026-11-20T14:54:06.725Z",
+  "updatedAt": "2026-11-20T14:54:06.870Z"
 }
 ```
 
@@ -183,11 +183,11 @@ content-type: application/json; charset=utf-8
 ```http
 POST /v1/ingest/casino-a/events HTTP/1.1
 content-type: application/json
-x-mio-timestamp: 1795185645
-x-mio-signature: e2435c69090fd03d64d04a389510564b074569ef647b4f96f72e0e80bfc4aaf5
+x-mio-timestamp: 1795186446
+x-mio-signature: bd05276cb495508208510908addcf4a62b950a1dc438813a45896360d656da27
 x-mio-key-id: key-casino-a
 
-{"event":"deposit.completed","event_id":"a-550a2295-636d-4027-b9fc-bcd934dafa4c","user_id":"player-casino-a","amount":"50.00","currency":"EUR","occurred_at":"2026-11-20T14:40:45.043Z"}
+{"event":"deposit.completed","event_id":"a-59d60583-81ab-4dde-bb47-a2d1db5c9662","user_id":"player-casino-a","amount":"50.00","currency":"EUR","occurred_at":"2026-11-20T14:54:06.006Z"}
 ```
 
 ```http
@@ -196,7 +196,7 @@ content-type: application/json; charset=utf-8
 
 {
   "status": "duplicate",
-  "eventId": "09a559ab-54ec-45bd-abba-85d5026f0d65"
+  "eventId": "356cc3df-8354-4750-9180-f656e8994a51"
 }
 ```
 
@@ -216,7 +216,7 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "redemptionId": "10176e58-2066-4548-b639-79f9affb5ac0",
+  "redemptionId": "01194343-82a2-4dd3-9005-9b3c1811a480",
   "status": "issued",
   "itemId": "free-spins-50",
   "price": 100
@@ -238,9 +238,9 @@ content-type: application/json; charset=utf-8
 
 {
   "meta": {
-    "eventId": "b-b252e4f0-2a3e-4f84-b937-e3dfd94e3ca6",
+    "eventId": "b-90505137-f396-4ef9-b003-e7e0db052784",
     "type": "PLAYER_DEPOSIT",
-    "emittedAt": "2026-11-20T14:40:45.993Z"
+    "emittedAt": "2026-11-20T14:54:07.072Z"
   },
   "payload": {
     "playerRef": "player-casino-b",
@@ -255,11 +255,11 @@ content-type: application/json; charset=utf-8
 ```http
 POST /v1/ingest/casino-b/events HTTP/1.1
 content-type: application/json
-x-mio-timestamp: 1795185645
-x-mio-signature: 10a006782905c260631397d114b8f091117d6b9e8199e6e2ce21a367f3c6124a
+x-mio-timestamp: 1795186447
+x-mio-signature: 75273a20b79540d48f69b7d2cfbb88aa457f9fff0c1287d2a26e29bb0641727b
 x-mio-key-id: key-casino-b
 
-{"meta":{"eventId":"b-b252e4f0-2a3e-4f84-b937-e3dfd94e3ca6","type":"PLAYER_DEPOSIT","emittedAt":"2026-11-20T14:40:45.993Z"},"payload":{"playerRef":"player-casino-b","amountCents":5000,"ccy":"EUR"}}
+{"meta":{"eventId":"b-90505137-f396-4ef9-b003-e7e0db052784","type":"PLAYER_DEPOSIT","emittedAt":"2026-11-20T14:54:07.072Z"},"payload":{"playerRef":"player-casino-b","amountCents":5000,"ccy":"EUR"}}
 ```
 
 ```http
@@ -268,7 +268,7 @@ content-type: application/json; charset=utf-8
 
 {
   "status": "accepted",
-  "eventId": "b6a6903a-638f-4002-aeab-f5a7808c9dc9"
+  "eventId": "45f827f1-f314-4953-a746-afcd84eec4de"
 }
 ```
 
@@ -287,7 +287,7 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "token": "eyJ0IjoidGVuYW50LWIiLCJwIjoiNDJlZTE3MWYtYjIwOS00NTVmLWE1ZWEtMjdlNmEwMWYwNmViIiwiZXhwIjoxNzk1MTg5MjQ2fQ.da7340dc09803f05d5ed135cf875a2a16443a80d15edd5e05c0716ee2ed9aeed",
+  "token": "eyJ0IjoidGVuYW50LWIiLCJwIjoiNDQxYTRmMDktNGJlYi00N2ZiLWE4NzctMWE3ODJjYmFkYWJiIiwiZXhwIjoxNzk1MTkwMDQ3fQ.f75cb25bf8f5715045edb839f7023e5953e35c16f7d9696046af48513692954e",
   "expiresInSeconds": 3600
 }
 ```
@@ -307,20 +307,20 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "spinId": "47791a14-0160-4b9c-870c-0d099b7d1a27",
+  "spinId": "2c794dd5-36a1-43b6-a232-924eb35b13b4",
   "wheelId": "welcome",
   "wheelVersion": 1,
-  "sliceId": "free-spins-10",
+  "sliceId": "coins-200",
   "prize": {
-    "kind": "free_spins",
-    "count": 10
+    "kind": "coins",
+    "amount": 200
   },
-  "coinsCredited": 0,
-  "balance": 0,
+  "coinsCredited": 200,
+  "balance": 200,
   "remainingSpins": 1,
   "fairness": {
-    "seed": "1e8a5fdbc7a3c09f25da2ee68d8864d2f8a56daae4f192fb4f7adf1839b38028",
-    "seedHash": "3e75db613773c11a3c91550a686c14c2442b8f19106e8db4b7dd80d831eaa6da",
+    "seed": "e588011d8816a0fe5051e5b7e1422296806ea08c07ff5a2f7ab7bb49d4102c73",
+    "seedHash": "d1d1f0ef433a32eed2c6a781e001f1961ea2cd7cf19f4e2c0c9d386582e4b4f3",
     "wheelVersion": 1
   }
 }
@@ -368,7 +368,7 @@ HTTP/1.1 202
 content-type: application/json; charset=utf-8
 
 {
-  "redemptionId": "f00a79c2-5a18-4fe0-b6a6-209cfc840f49",
+  "redemptionId": "7dbf0e8e-8afb-4c79-96f3-7f43a7ec8364",
   "status": "pending_issuance",
   "itemId": "free-spins-50",
   "price": 100
@@ -378,7 +378,7 @@ content-type: application/json; charset=utf-8
 ## casino-b — GET /v1/redemptions/:id (issued)
 
 ```http
-GET /v1/redemptions/f00a79c2-5a18-4fe0-b6a6-209cfc840f49 HTTP/1.1
+GET /v1/redemptions/7dbf0e8e-8afb-4c79-96f3-7f43a7ec8364 HTTP/1.1
 authorization: [redacted]
 ```
 
@@ -387,7 +387,7 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "redemptionId": "f00a79c2-5a18-4fe0-b6a6-209cfc840f49",
+  "redemptionId": "7dbf0e8e-8afb-4c79-96f3-7f43a7ec8364",
   "status": "issued",
   "itemId": "free-spins-50",
   "price": 100,
@@ -397,9 +397,9 @@ content-type: application/json; charset=utf-8
   },
   "attempts": 0,
   "lastError": null,
-  "externalRef": "B-52cfbd8d-2bc7-4561-9253-d617d504b2e8",
-  "createdAt": "2026-11-20T14:40:46.396Z",
-  "updatedAt": "2026-11-20T14:40:46.481Z"
+  "externalRef": "B-55267252-00fb-47ec-9422-0ccbdd4a9113",
+  "createdAt": "2026-11-20T14:54:07.426Z",
+  "updatedAt": "2026-11-20T14:54:07.529Z"
 }
 ```
 
@@ -408,11 +408,11 @@ content-type: application/json; charset=utf-8
 ```http
 POST /v1/ingest/casino-b/events HTTP/1.1
 content-type: application/json
-x-mio-timestamp: 1795185645
-x-mio-signature: 10a006782905c260631397d114b8f091117d6b9e8199e6e2ce21a367f3c6124a
+x-mio-timestamp: 1795186447
+x-mio-signature: 75273a20b79540d48f69b7d2cfbb88aa457f9fff0c1287d2a26e29bb0641727b
 x-mio-key-id: key-casino-b
 
-{"meta":{"eventId":"b-b252e4f0-2a3e-4f84-b937-e3dfd94e3ca6","type":"PLAYER_DEPOSIT","emittedAt":"2026-11-20T14:40:45.993Z"},"payload":{"playerRef":"player-casino-b","amountCents":5000,"ccy":"EUR"}}
+{"meta":{"eventId":"b-90505137-f396-4ef9-b003-e7e0db052784","type":"PLAYER_DEPOSIT","emittedAt":"2026-11-20T14:54:07.072Z"},"payload":{"playerRef":"player-casino-b","amountCents":5000,"ccy":"EUR"}}
 ```
 
 ```http
@@ -421,7 +421,7 @@ content-type: application/json; charset=utf-8
 
 {
   "status": "duplicate",
-  "eventId": "b6a6903a-638f-4002-aeab-f5a7808c9dc9"
+  "eventId": "45f827f1-f314-4953-a746-afcd84eec4de"
 }
 ```
 
@@ -441,7 +441,7 @@ HTTP/1.1 200
 content-type: application/json; charset=utf-8
 
 {
-  "redemptionId": "f00a79c2-5a18-4fe0-b6a6-209cfc840f49",
+  "redemptionId": "7dbf0e8e-8afb-4c79-96f3-7f43a7ec8364",
   "status": "issued",
   "itemId": "free-spins-50",
   "price": 100
