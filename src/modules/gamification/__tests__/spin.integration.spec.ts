@@ -176,8 +176,12 @@ describe('gamification — the spin', () => {
     const player = await playerIdOf('player-77');
     await grantEntitlement('tenant-a', player, { expiresInHours: 1 });
     api.clock.advance(2 * 3600 * 1000);
+    // Advancing the clock also expires the player token (1h TTL), so re-mint it:
+    // otherwise this test would prove that an expired TOKEN is refused, which is
+    // S10's job, and would have passed while saying nothing about entitlements.
+    const fresh = await session('player-77');
 
-    const res = await spin(token);
+    const res = await spin(fresh.body.token);
     expect(res.status).toBe(409);
     const rows = await api.db.sql`select state from gamification.spin_entitlement`;
     expect(rows[0]!.state).toBe('granted');

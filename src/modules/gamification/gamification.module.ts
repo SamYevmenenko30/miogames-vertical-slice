@@ -4,17 +4,22 @@ import { UnitOfWork } from '../../platform/db/unit-of-work';
 import { IdentityModule } from '../identity/identity.module';
 import { CLOCK, type Clock } from '../../platform/clock/clock';
 import { IdentityFacade } from '../identity';
+import { LedgerFacade } from '../ledger';
+import { LedgerModule } from '../ledger/ledger.module';
 import { AdminWheelsController } from './adapters/in/admin-wheels.controller';
 import { DepositObservedConsumer } from './adapters/in/deposit-observed.consumer';
+import { SpinController } from './adapters/in/spin.controller';
 import { EntitlementRepository } from './adapters/out/entitlement.repository';
+import { SpinRepository } from './adapters/out/spin.repository';
+import { SpinUseCase } from './application/spin.usecase';
 import { RewardRuleRepository } from './adapters/out/rule.repository';
 import { WheelRepository } from './adapters/out/wheel.repository';
 import { GrantEntitlementsUseCase } from './application/grant-entitlements.usecase';
 import { WheelConfigService } from './application/wheel-config.service';
 
 @Module({
-  imports: [IdentityModule],
-  controllers: [AdminWheelsController],
+  imports: [IdentityModule, LedgerModule],
+  controllers: [AdminWheelsController, SpinController],
   providers: [
     { provide: WheelRepository, inject: [UnitOfWork], useFactory: (uow: UnitOfWork) => new WheelRepository(uow) },
     {
@@ -45,12 +50,25 @@ import { WheelConfigService } from './application/wheel-config.service';
         clock: Clock,
       ) => new GrantEntitlementsUseCase(uow, identity, rules, wheels, entitlements, clock),
     },
+    { provide: SpinRepository, inject: [UnitOfWork], useFactory: (uow: UnitOfWork) => new SpinRepository(uow) },
+    {
+      provide: SpinUseCase,
+      inject: [UnitOfWork, EntitlementRepository, WheelRepository, SpinRepository, LedgerFacade, CLOCK],
+      useFactory: (
+        uow: UnitOfWork,
+        entitlements: EntitlementRepository,
+        wheels: WheelRepository,
+        spins: SpinRepository,
+        ledger: LedgerFacade,
+        clock: Clock,
+      ) => new SpinUseCase(uow, entitlements, wheels, spins, ledger, clock),
+    },
     {
       provide: DepositObservedConsumer,
       inject: [UnitOfWork, GrantEntitlementsUseCase],
       useFactory: (uow: UnitOfWork, grant: GrantEntitlementsUseCase) => new DepositObservedConsumer(uow, grant),
     },
   ],
-  exports: [WheelConfigService, DepositObservedConsumer],
+  exports: [WheelConfigService, DepositObservedConsumer, SpinUseCase],
 })
 export class GamificationModule {}

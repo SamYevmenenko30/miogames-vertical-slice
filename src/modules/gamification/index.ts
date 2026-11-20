@@ -1,3 +1,4 @@
+export { SpinUseCase, type SpinResult } from './application/spin.usecase';
 export { WheelConfigService } from './application/wheel-config.service';
 export type { WheelVersion } from './application/ports';
 export { totalWeight, validateSlices, weightedPick } from './domain/wheel';

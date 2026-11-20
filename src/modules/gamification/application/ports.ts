@@ -32,6 +32,28 @@ export interface RewardRuleRepositoryPort {
   activeRules(): Promise<import('../domain/reward-rule').RewardRule[]>;
 }
 
+
+export type RecordedSpin = {
+  id: string;
+  playerId: string;
+  entitlementId: string;
+  wheelId: string;
+  wheelVersion: number;
+  serverSeed: string;
+  seedHash: string;
+  sliceId: string;
+  prize: import('../domain/wheel').Prize;
+  coinsCredited: number;
+  spunAt: Date;
+};
+
+export interface SpinRepositoryPort {
+  record(spin: RecordedSpin): Promise<void>;
+}
+
 export interface EntitlementRepositoryPort {
   grant(entitlements: NewEntitlement[]): Promise<void>;
+  claimOne(playerId: string, now: Date): Promise<import('../domain/entitlement').SpinEntitlement | null>;
+  countClaimable(playerId: string, now: Date): Promise<number>;
+  expireDue(now: Date): Promise<number>;
 }
