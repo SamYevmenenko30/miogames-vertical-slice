@@ -1,0 +1,23 @@
+
+gate-probes — 18 probe(s)
+
+✓  lint/domain-ring-stays-pure
+✓  lint/no-deep-import-across-modules
+✓  lint/application-may-not-reach-into-an-adapter
+✓  lint/a-facade-may-not-re-export-an-adapter
+✓  arch-check/stray-file-at-a-module-root
+✓  lint/config-read-outside-platform-config
+✓  arch-check/undeclared-module
+✓  arch-check/platform-importing-a-module
+✓  arch-check/undeclared-cross-module-import
+✓  arch-check/module-without-isolation-test
+✓  spec-gate/unanswered-open-question
+✓  spec-gate/answer-without-an-owner
+✓  board/column-drift
+✓  board/wip-limit-of-one
+✓  board/commit-trailer-names-a-ghost-card
+✓  test-guard/spec-test-edited-without-a-declaration
+✓  red-check/a-new-test-that-is-green-without-the-code
+✓  red-check/requires-the-tests-phase-to-add-a-test
+
+gate-probes: PASS — all 18 gates fail on a planted violation, and pass without one.

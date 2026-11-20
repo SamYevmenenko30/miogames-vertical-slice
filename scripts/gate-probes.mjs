@@ -1,0 +1,320 @@
+#!/usr/bin/env node
+/**
+ * gate-probes — do the gates actually bite?
+ *
+ * A gate that has never been observed to fail is indistinguishable from a gate
+ * that silently passes everything. This has happened to me on a larger project:
+ * three gates had been dead for weeks, each exiting zero while printing a
+ * verdict nobody read.
+ *
+ * So every probe does two runs in a scratch worktree:
+ *   1. BASELINE — the gate passes on an unmodified tree. Without this, a probe
+ *      "succeeds" whenever the gate is broken for an unrelated reason.
+ *   2. VIOLATION — a known-bad change is planted, and the gate must exit
+ *      non-zero AND say the expected thing. Exiting non-zero for the wrong
+ *      reason is a failed probe.
+ *
+ * Usage: pnpm gate-probes [name-fragment]
+ */
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { ROOT, sh, trySh } from './lib/util.mjs';
+
+const WT = join(ROOT, '.tmp', `probe-wt-${process.pid}`);
+const filter = process.argv.slice(2).find((a) => !a.startsWith('-'));
+
+const write = (rel, text) => {
+  const p = join(WT, rel);
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, text);
+};
+const run = (cmd, args) => trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0' }, timeout: 300_000 });
+const commit = (msg) => {
+  sh('git', ['-C', WT, 'add', '-A'], { stdio: 'ignore' });
+  sh('git', ['-C', WT, 'commit', '-q', '--no-verify', '-m', msg], { stdio: 'ignore' });
+  return sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+};
+
+/** A module skeleton, so a boundary probe has somewhere legal to stand. */
+function scaffoldModule(name, deps = []) {
+  write(`src/modules/${name}/domain/${name}.ts`, `export const ${name}Marker = '${name}' as const;\n`);
+  write(`src/modules/${name}/application/${name}.facade.ts`, `export class ${name}Facade {}\nexport const ${name}Facade_ = '${name}' as const;\n`);
+  write(`src/modules/${name}/adapters/out/.keep`, '');
+  write(`src/modules/${name}/index.ts`, `export { ${name}Facade } from './application/${name}.facade';\nexport { ${name}Marker } from './domain/${name}';\n`);
+  write(`src/modules/${name}/${name}.module.ts`, `import { Module } from '@nestjs/common';\nimport { ${name}Facade } from './application/${name}.facade';\n\n@Module({ providers: [${name}Facade], exports: [${name}Facade] })\nexport class ${name[0].toUpperCase()}${name.slice(1)}Module {}\n`);
+  write(`src/modules/${name}/AGENTS.md`, `# ${name}\n\nProbe scaffold.\n`);
+  write(`src/modules/${name}/__tests__/${name}-isolation.integration.spec.ts`, `import { it } from 'vitest';\n\nit('S0 — probe', () => {});\n`);
+  void deps;
+}
+
+const probes = [
+  {
+    name: 'lint/domain-ring-stays-pure',
+    gate: ['pnpm', ['lint']],
+    expect: /domain ring stays free of framework/i,
+    plant() {
+      scaffoldModule('ledger');
+      write('src/modules/ledger/domain/entry.ts',
+        `import { Injectable } from '@nestjs/common';\n\n@Injectable()\nexport class Entry {}\n`);
+    },
+  },
+  {
+    name: 'lint/no-deep-import-across-modules',
+    gate: ['pnpm', ['lint']],
+    expect: /no policy allowing dependencies from elements of type "module-application"[\s\S]*?"module-domain"/i,
+    plant() {
+      scaffoldModule('ledger');
+      scaffoldModule('rewards');
+      write('src/modules/rewards/application/redeem.ts',
+        `import { ledgerMarker } from '../../ledger/domain/ledger';\n\nexport const used = ledgerMarker;\n`);
+    },
+  },
+  {
+    name: 'lint/application-may-not-reach-into-an-adapter',
+    gate: ['pnpm', ['lint']],
+    expect: /no policy allowing dependencies from elements of type "module-application"[\s\S]*?"module-adapter-out"/i,
+    plant() {
+      scaffoldModule('ledger');
+      write('src/modules/ledger/adapters/out/entry.repository.ts', `export const repo = 'pg';\n`);
+      write('src/modules/ledger/application/credit.ts',
+        `import { repo } from '../adapters/out/entry.repository';\n\nexport const used = repo;\n`);
+    },
+  },
+  {
+    name: 'lint/a-facade-may-not-re-export-an-adapter',
+    gate: ['pnpm', ['lint']],
+    expect: /no policy allowing dependencies from[\s\S]*?category "facade"[\s\S]*?"module-adapter-out"/i,
+    plant() {
+      scaffoldModule('ledger');
+      write('src/modules/ledger/adapters/out/entry.repository.ts', `export const repo = 'pg';\n`);
+      write('src/modules/ledger/index.ts',
+        `export { ledgerFacade } from './application/ledger.facade';\nexport { repo } from './adapters/out/entry.repository';\n`);
+    },
+  },
+  {
+    name: 'arch-check/stray-file-at-a-module-root',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    expect: /a module root holds only/i,
+    plant() {
+      scaffoldModule('ledger');
+      write('src/modules/ledger/helpers.ts', `export const help = 1;\n`);
+    },
+  },
+  {
+    name: 'lint/config-read-outside-platform-config',
+    gate: ['pnpm', ['lint']],
+    expect: /platform\/config/i,
+    plant() {
+      scaffoldModule('ledger');
+      write('src/modules/ledger/application/sneaky.ts',
+        `export const url = process.env.DATABASE_URL ?? '';\n`);
+    },
+  },
+  {
+    name: 'arch-check/undeclared-module',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    expect: /is not declared in architecture\.yaml/i,
+    plant() { scaffoldModule('pvp'); },
+  },
+  {
+    name: 'arch-check/platform-importing-a-module',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    expect: /platform carries no business knowledge/i,
+    plant() {
+      scaffoldModule('ledger');
+      write('src/platform/db/leak.ts', `import { ledgerMarker } from '../../modules/ledger/domain/ledger';\n\nexport const x = ledgerMarker;\n`);
+    },
+  },
+  {
+    name: 'arch-check/undeclared-cross-module-import',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    expect: /does not declare it in dependsOn/i,
+    plant() {
+      scaffoldModule('ledger');
+      scaffoldModule('identity');
+      // ledger declares dependsOn: [] in the model, so this edge is undeclared.
+      write('src/modules/ledger/application/peek.ts',
+        `import { identityMarker } from '../../identity';\n\nexport const x = identityMarker;\n`);
+    },
+  },
+  {
+    name: 'arch-check/module-without-isolation-test',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    expect: /no tenant-isolation integration test/i,
+    plant() {
+      scaffoldModule('ledger');
+      rmSync(join(WT, 'src/modules/ledger/__tests__'), { recursive: true, force: true });
+    },
+  },
+  {
+    name: 'spec-gate/unanswered-open-question',
+    gate: ['node', ['scripts/spec-gate.mjs', 'MIO-999']],
+    expect: /unanswered\. A ticket does not leave the spec phase/i,
+    setup() {
+      write('board/2-in-tests/MIO-999-probe.md',
+        `---\nid: MIO-999\ntitle: "probe"\ncolumn: 2-in-tests\ntype: feature\nmodule: ledger\npart: "C"\ndepends_on: []\nspec: docs/specs/MIO-999.md\n---\n\n# probe\n`);
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **Q1 — should a refund be partial?** → **Answered** (Sam, 2026-11-20): no, all or nothing.\n`);
+    },
+    plant() {
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **Q1 — should a refund be partial?** Nobody has decided.\n`);
+    },
+  },
+  {
+    name: 'spec-gate/answer-without-an-owner',
+    gate: ['node', ['scripts/spec-gate.mjs', 'MIO-999']],
+    expect: /answered without "\(who, YYYY-MM-DD\)"/i,
+    setup() {
+      write('board/2-in-tests/MIO-999-probe.md',
+        `---\nid: MIO-999\ntitle: "probe"\ncolumn: 2-in-tests\ntype: feature\nmodule: ledger\npart: "C"\ndepends_on: []\nspec: docs/specs/MIO-999.md\n---\n\n# probe\n`);
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **Q1 — should a refund be partial?** → **Answered** (Sam, 2026-11-20): no, all or nothing.\n`);
+    },
+    plant() {
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **Q1 — should a refund be partial?** → **Answered**: yes, fully.\n`);
+    },
+  },
+  {
+    name: 'board/column-drift',
+    gate: ['node', ['scripts/board.mjs', '--check']],
+    expect: /front-matter says column/i,
+    plant() {
+      mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
+      renameSync(join(WT, 'board/0-backlog/MIO-008-coin-ledger.md'), join(WT, 'board/3-in-progress/MIO-008-coin-ledger.md'));
+    },
+  },
+  {
+    name: 'board/wip-limit-of-one',
+    gate: ['node', ['scripts/board.mjs', '--check']],
+    expect: /WIP limit is 1/i,
+    plant() {
+      for (const id of ['MIO-008-coin-ledger', 'MIO-006-wheel-configuration']) {
+        const from = join(WT, `board/0-backlog/${id}.md`);
+        mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
+        const to = join(WT, `board/3-in-progress/${id}.md`);
+        const text = readFileSync(from, 'utf8').replace('column: 0-backlog', 'column: 3-in-progress');
+        writeFileSync(to, text);
+        rmSync(from);
+      }
+    },
+  },
+  {
+    name: 'board/commit-trailer-names-a-ghost-card',
+    gate: ['node', ['scripts/board.mjs', '--check']],
+    expect: /no such card exists/i,
+    plant() {
+      write('docs/notes-probe.md', 'probe\n');
+      commit('chore: probe\n\nTicket: MIO-777\n');
+    },
+  },
+  {
+    name: 'test-guard/spec-test-edited-without-a-declaration',
+    gate: ['node', ['scripts/test-guard.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    expect: /was modified on this branch with no declaration/i,
+    plant() {
+      write('src/probe-guard.spec.ts', `import { expect, it } from 'vitest';\n\nit('S1 — probe', () => { expect(1).toBe(1); });\n`);
+      const base = commit('test: probe baseline\n');
+      write('src/probe-guard.spec.ts', `import { expect, it } from 'vitest';\n\nit('S1 — probe', () => { expect(1).toBe(2); });\n`);
+      commit('fix: bend the test\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/a-new-test-that-is-green-without-the-code',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    expect: /PASSES at the merge-base/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-vacuous.spec.ts',
+        `import { expect, it } from 'vitest';\n\nit('S1 — a vacuous test', () => { expect(2 + 2).toBe(4); });\n`);
+      commit('test: a test that needs no implementation\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/requires-the-tests-phase-to-add-a-test',
+    gate: ['node', ['scripts/red-check.mjs', '--require-tests']],
+    expect: /adds no test file/i,
+    plant() { /* nothing: an empty branch must fail --require-tests */ },
+    skipBaseline: true,
+  },
+];
+
+// ---------------------------------------------------------------------------
+function freshWorktree() {
+  rmSync(WT, { recursive: true, force: true });
+  trySh('git', ['worktree', 'prune']);
+  mkdirSync(dirname(WT), { recursive: true });
+  sh('git', ['worktree', 'add', '--detach', WT, 'HEAD'], { stdio: 'ignore' });
+  if (!existsSync(join(WT, 'node_modules'))) symlinkSync(join(ROOT, 'node_modules'), join(WT, 'node_modules'));
+  overlayWorkingTree();
+  // The probes must measure the gates as they are ABOUT to be committed, not as
+  // they were at HEAD — otherwise a gate can only be probed after it is pushed.
+  sh('git', ['-C', WT, 'add', '-A'], { stdio: 'ignore' });
+  sh('git', ['-C', WT, 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'probe: working tree overlay'], { stdio: 'ignore' });
+}
+
+function overlayWorkingTree() {
+  const status = sh('git', ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
+  for (const entry of status) {
+    const code = entry.slice(0, 2);
+    const path = entry.slice(3);
+    if (path.startsWith('.tmp/') || path.startsWith('node_modules/') || path.startsWith('dist/')) continue;
+    const src = join(ROOT, path);
+    const dest = join(WT, path);
+    if (code.includes('D') || !existsSync(src)) { rmSync(dest, { recursive: true, force: true }); continue; }
+    mkdirSync(dirname(dest), { recursive: true });
+    if (statSync(src).isDirectory()) cpSync(src, dest, { recursive: true });
+    else cpSync(src, dest);
+  }
+}
+
+const selected = probes.filter((p) => !filter || p.name.includes(filter));
+console.log(`\ngate-probes — ${selected.length} probe(s)\n`);
+const failures = [];
+
+for (const probe of selected) {
+  freshWorktree();
+  const [cmd, args] = probe.gate;
+
+  if (probe.setup) probe.setup();
+  if (!probe.skipBaseline) {
+    const baseline = run(cmd, args);
+    if (!baseline.ok) {
+      failures.push(`${probe.name}: BASELINE failed — the gate does not pass on a clean tree, so this probe proves nothing.\n${indent(baseline.out)}`);
+      console.log(`✗  ${probe.name}  (baseline)`);
+      continue;
+    }
+  }
+
+  const planted = probe.plant();
+  const env = probe.expectEnv ? probe.expectEnv(planted) : {};
+  const res = trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0', ...env }, timeout: 300_000 });
+
+  if (res.ok) {
+    failures.push(`${probe.name}: the gate PASSED on a planted violation. The gate is not doing its job.\n${indent(res.out)}`);
+    console.log(`✗  ${probe.name}  (gate stayed green)`);
+  } else if (!probe.expect.test(res.out ?? '')) {
+    failures.push(`${probe.name}: the gate failed, but not for the expected reason (wanted ${probe.expect}).\n${indent(res.out)}`);
+    console.log(`✗  ${probe.name}  (wrong reason)`);
+  } else {
+    console.log(`✓  ${probe.name}`);
+  }
+}
+
+rmSync(WT, { recursive: true, force: true });
+trySh('git', ['worktree', 'prune']);
+
+function indent(s) { return (s ?? '').trim().split('\n').slice(-25).map((l) => `      ${l}`).join('\n'); }
+
+console.log('');
+if (failures.length) {
+  for (const f of failures) console.log(`✗  ${f}\n`);
+  console.log(`gate-probes: FAIL — ${failures.length} of ${selected.length} probe(s)`);
+  process.exit(1);
+}
+console.log(`gate-probes: PASS — all ${selected.length} gates fail on a planted violation, and pass without one.`);

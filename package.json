@@ -27,7 +27,8 @@
     "test-guard": "node scripts/test-guard.mjs",
     "arch-check": "node scripts/arch-check.mjs",
     "review:request": "node scripts/review-request.mjs",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "gate-probes": "node scripts/gate-probes.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.11",

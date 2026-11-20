@@ -1,0 +1,104 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The same gates the author runs locally. CI is the arbiter, the local run is the loop.
+  PNPM_VERSION: '10.34.4'
+
+jobs:
+  gates:
+    name: gates (lint · typecheck · architecture · board)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version-file: '.nvmrc', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm arch-check
+      - run: pnpm board:check
+      - run: pnpm spec-gate
+      - run: pnpm test-guard
+      - run: pnpm build
+
+  tests:
+    name: tests (unit + integration against Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mio
+          POSTGRES_PASSWORD: mio
+          POSTGRES_DB: mio
+        ports: ['5440:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://mio:mio@localhost:5440/mio
+      DATABASE_URL_TEST: postgres://mio:mio@localhost:5440/mio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version-file: '.nvmrc', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm test
+      - name: smoke — all eight Part B steps, both operators
+        run: pnpm smoke
+
+  red-check:
+    name: red-check (new tests must fail at the merge-base)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mio
+          POSTGRES_PASSWORD: mio
+          POSTGRES_DB: mio
+        ports: ['5440:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://mio:mio@localhost:5440/mio
+      DATABASE_URL_TEST: postgres://mio:mio@localhost:5440/mio
+      MIO_BASE_REF: ${{ github.event.pull_request.base.sha }}
+    steps:
+      # Full history: the gate checks out the merge-base into a worktree.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version-file: '.nvmrc', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm red-check
+
+  gate-probes:
+    name: gate-probes (the gates must fail on a planted violation)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version-file: '.nvmrc', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gate-probes

@@ -22,27 +22,42 @@ export default tseslint.config(
     },
     plugins: { boundaries },
     settings: {
-      'boundaries/dependency-nodes': ['import', 'dynamic-import', 'require'],
+      // boundaries resolves import specifiers through eslint-module-utils, whose
+      // default node resolver does not know about .ts — without this every
+      // relative import is "unknown" and every policy silently matches nothing.
+      'import/resolver': { node: { extensions: ['.ts', '.mts', '.tsx', '.js', '.mjs', '.json'] } },
+      // 'export' matters as much as 'import': without it a facade can re-export an
+      // adapter and the module's public surface becomes its implementation.
+      'boundaries/dependency-nodes': ['import', 'export', 'dynamic-import', 'require'],
+      // Elements are FOLDERS (v7 semantics — a file pattern here classifies
+      // nothing, silently, which `pnpm gate-probes` caught). The two rings that
+      // need a per-file distinction — the facade and the Nest wiring, both of
+      // which live at the module root — are file CATEGORIES instead.
       'boundaries/elements': [
-        { type: 'module-domain', pattern: `${MODULE}/domain/**/*`, capture: ['_', 'module'], partialMatch: false },
-        { type: 'module-application', pattern: `${MODULE}/application/**/*`, capture: ['_', 'module'], partialMatch: false },
-        { type: 'module-adapter-in', pattern: `${MODULE}/adapters/in/**/*`, capture: ['_', 'module'], partialMatch: false },
-        { type: 'module-adapter-out', pattern: `${MODULE}/adapters/out/**/*`, capture: ['_', 'module'], partialMatch: false },
-        { type: 'module-facade', pattern: `${MODULE}/index.ts`, capture: ['_', 'module'], partialMatch: false },
-        { type: 'module-wiring', pattern: `${MODULE}/*.module.ts`, capture: ['_', 'module'], partialMatch: false },
-        { type: 'platform', pattern: 'src/platform/**/*', partialMatch: false },
-        { type: 'contracts', pattern: 'src/contracts/**/*', partialMatch: false },
-        { type: 'mocks', pattern: 'src/mocks/**/*', partialMatch: false },
-        { type: 'composition', pattern: 'src/*.ts', partialMatch: false },
-        { type: 'tooling', pattern: ['scripts/**/*', 'vitest.config.mts', 'drizzle.config.ts'], partialMatch: false },
+        { type: 'module-domain', pattern: `${MODULE}/domain`, capture: ['module'] },
+        { type: 'module-application', pattern: `${MODULE}/application`, capture: ['module'] },
+        { type: 'module-adapter-in', pattern: `${MODULE}/adapters/in`, capture: ['module'] },
+        { type: 'module-adapter-out', pattern: `${MODULE}/adapters/out`, capture: ['module'] },
+        { type: 'module-root', pattern: MODULE, capture: ['module'] },
+        { type: 'platform', pattern: 'src/platform' },
+        { type: 'contracts', pattern: 'src/contracts' },
+        { type: 'mocks', pattern: 'src/mocks' },
+        { type: 'composition', pattern: 'src' },
+        { type: 'tooling', pattern: 'scripts' },
+      ],
+      'boundaries/files': [
+        { pattern: `${MODULE}/index.ts`, category: 'facade' },
+        { pattern: `${MODULE}/*.module.ts`, category: 'wiring' },
+        { pattern: ['**/*.spec.ts', '**/__tests__/**/*'], category: 'test' },
       ],
     },
     rules: {
       'boundaries/no-unknown-files': 'error',
+      'boundaries/no-unknown-dependencies': 'error',
       'boundaries/dependencies': ['error', {
         default: 'disallow',
         policies: [
-          // Domain is pure: its own module's domain and the contracts, nothing else.
+          // The domain ring is pure: its own module's domain, and the shared contracts.
           { from: [{ element: { type: 'module-domain' } }], allow: [
             { to: { element: { type: 'module-domain', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'contracts' } } },
@@ -53,31 +68,32 @@ export default tseslint.config(
             { to: { element: { type: 'module-application', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'platform' } } },
             { to: { element: { type: 'contracts' } } },
-            { to: { element: { type: 'module-facade', captured: { module: '!{{from.module}}' } } } },
+            { to: { element: { type: 'module-root', captured: { module: '!{{from.module}}' } }, file: { categories: 'facade' } } },
           ] },
-          // Adapters may see everything inside their own module, plus platform.
+          // Adapters see their own module's inner rings, platform, and other facades.
           { from: [{ element: { type: 'module-adapter-in' } }, { element: { type: 'module-adapter-out' } }], allow: [
             { to: { element: { type: 'module-domain', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'module-application', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'module-adapter-out', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'platform' } } },
             { to: { element: { type: 'contracts' } } },
-            { to: { element: { type: 'module-facade', captured: { module: '!{{from.module}}' } } } },
+            { to: { element: { type: 'module-root', captured: { module: '!{{from.module}}' } }, file: { categories: 'facade' } } },
           ] },
-          // The facade re-exports its own application + domain types. Nothing else.
-          { from: [{ element: { type: 'module-facade' } }], allow: [
+          // The facade re-exports its own application and domain types. Nothing else —
+          // in particular it may not re-export an adapter, which would turn the public
+          // surface of the module into its implementation.
+          { from: [{ element: { type: 'module-root' }, file: { categories: 'facade' } }], allow: [
             { to: { element: { type: 'module-domain', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'module-application', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'contracts' } } },
           ] },
-          // Wiring (the Nest module) is the only place allowed to see all three rings.
-          { from: [{ element: { type: 'module-wiring' } }], allow: [
+          // Nest wiring is the only place allowed to see all three of its own rings.
+          { from: [{ element: { type: 'module-root' }, file: { categories: 'wiring' } }], allow: [
             { to: { element: { type: 'module-domain', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'module-application', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'module-adapter-in', captured: { module: '{{from.module}}' } } } },
             { to: { element: { type: 'module-adapter-out', captured: { module: '{{from.module}}' } } } },
-            { to: { element: { type: 'module-facade', captured: { module: '!{{from.module}}' } } } },
-            { to: { element: { type: 'module-wiring', captured: { module: '!{{from.module}}' } } } },
+            { to: { element: { type: 'module-root', captured: { module: '!{{from.module}}' } } } },
             { to: { element: { type: 'platform' } } },
             { to: { element: { type: 'contracts' } } },
           ] },
@@ -87,10 +103,9 @@ export default tseslint.config(
             { to: { element: { type: 'contracts' } } },
           ] },
           { from: [{ element: { type: 'contracts' } }], allow: [{ to: { element: { type: 'contracts' } } }] },
-          // Composition roots wire everything together.
+          // Composition roots wire the modules together; they touch no inner ring.
           { from: [{ element: { type: 'composition' } }], allow: [
-            { to: { element: { type: 'module-wiring' } } },
-            { to: { element: { type: 'module-facade' } } },
+            { to: { element: { type: 'module-root' } } },
             { to: { element: { type: 'platform' } } },
             { to: { element: { type: 'contracts' } } },
           ] },
@@ -103,8 +118,7 @@ export default tseslint.config(
             { to: { element: { type: 'tooling' } } },
             { to: { element: { type: 'platform' } } },
             { to: { element: { type: 'contracts' } } },
-            { to: { element: { type: 'module-facade' } } },
-            { to: { element: { type: 'module-wiring' } } },
+            { to: { element: { type: 'module-root' } } },
             { to: { element: { type: 'composition' } } },
           ] },
         ],
@@ -153,6 +167,7 @@ export default tseslint.config(
     rules: {
       'boundaries/dependencies': 'off',
       'boundaries/no-unknown-files': 'off',
+      'boundaries/no-unknown-dependencies': 'off',
       'no-restricted-imports': 'off',
       'no-restricted-properties': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
@@ -160,6 +175,6 @@ export default tseslint.config(
   },
   {
     files: ['scripts/**/*.mjs', 'scripts/**/*.ts', '*.mjs', '*.mts'],
-    rules: { 'boundaries/no-unknown-files': 'off', '@typescript-eslint/no-explicit-any': 'off' },
+    rules: { 'boundaries/no-unknown-files': 'off', 'boundaries/no-unknown-dependencies': 'off', '@typescript-eslint/no-explicit-any': 'off' },
   },
 );
