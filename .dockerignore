@@ -1,0 +1,14 @@
+# The build context the Dockerfile's `COPY . .` would otherwise ship: ~300MB of
+# host node_modules (built for the host's platform, not the image's), the git
+# history, and build output. The dev target reinstalls inside the image, so none
+# of it belongs in the context.
+node_modules
+.git
+.github
+dist
+coverage
+.tmp
+*.log
+.env
+.env.*
+!.env.example

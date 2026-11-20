@@ -5,11 +5,22 @@
 ```bash
 nvm use                 # Node 22
 pnpm install
-docker compose up -d    # postgres :5440, api :3000, worker, casino mock :3010
+docker compose up -d    # postgres :5440, api :3000, worker :3002, casino mock :3010
 pnpm db:migrate         # migrations are explicit, never applied at boot
 pnpm db:seed            # two tenants: casino-a and casino-b, with API keys printed
 pnpm smoke              # drives the whole Part B flow end to end and prints each step
 ```
+
+`docker compose up -d` is the containerised path, and it is checked rather than assumed: the
+build was run from a clean context, and with the stack up, `POST /v1/ingest/casino-a/events`
+without a signature answers `401 signature.invalid` as `application/problem+json`, while
+`:3002/health` and `:3010/health` answer `200`. `pnpm smoke` deliberately does **not** go through
+these containers — it boots its own composition on a database of its own, so that a green smoke
+run is never an accident of what happens to be running locally.
+
+A `.dockerignore` keeps the host's `node_modules` out of the build context. Without it the context
+is ~300MB of the wrong platform's binaries, and `docker compose build` takes minutes instead of
+seconds.
 
 Everything also runs without Docker except the integration tests and the smoke run, which need
 Postgres:

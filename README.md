@@ -21,6 +21,10 @@ pnpm db:migrate
 pnpm smoke          # all eight Part B steps, both operators, asserted
 ```
 
+Everything in containers instead, which is the reproducible path the assignment prefers:
+`docker compose up -d` brings up postgres, the api, the worker and both simulated operators —
+checked, not assumed ([local-development.md](docs/local-development.md#first-run)).
+
 `pnpm smoke` output from this repository is in
 [docs/ai/gate-runs/final-smoke.txt](docs/ai/gate-runs/final-smoke.txt). It captures the sample
 requests and responses itself — `pnpm smoke:samples` writes them, while plain `pnpm smoke` (the
