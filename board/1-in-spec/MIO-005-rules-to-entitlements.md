@@ -1,13 +1,13 @@
 ---
 id: MIO-005
 title: "gamification: reward rules turn a deposit into spin entitlements"
-column: 0-backlog
+column: 1-in-spec
 type: feature
 module: gamification
 part: "B, C"
 depends_on: [MIO-004, MIO-006]
 spec: docs/specs/MIO-005.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-005 — gamification: reward rules turn a deposit into spin entitlements
 
@@ -30,7 +30,7 @@ Step 3 of Part B. Rules are data so a new rule is a row; the rule evaluation is 
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 9 statements; tiers and TTL decided by Sam |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
