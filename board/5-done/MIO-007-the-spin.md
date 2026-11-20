@@ -1,13 +1,13 @@
 ---
 id: MIO-007
 title: "gamification: claim an entitlement exactly once and draw a verifiable outcome"
-column: 2-in-tests
+column: 5-done
 type: feature
 module: gamification
 part: "B, C"
 depends_on: [MIO-005, MIO-008]
 spec: docs/specs/MIO-007.md
-gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pass, review: pass }
 ---
 # MIO-007 — gamification: claim an entitlement exactly once and draw a verifiable outcome
 
@@ -33,9 +33,19 @@ Step 4 of Part B, the concurrent-spin case of Part C, and the anti-manipulation 
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 11 statements, 2 questions |
 | tests-from-spec | 2026-11-20 | `red-check` | PASS |
-| implement-to-green | — | `verify` | — |
-| review | — | `review:request` | — |
+| implement-to-green | 2026-11-20 | `verify` | PASS — 181 tests |
+| review | 2026-11-20 | `review:request` | PASS |
 
 ## Review findings
 
-_Filled in during review. A finding that is not fixed becomes a line in `docs/tech-debt.md`._
+**A test that would have passed for the wrong reason.** S6 ("an expired
+entitlement is not claimable") advanced the clock two hours past the
+entitlement's expiry — which also expires the one-hour player token. The spin
+would have answered 401, the test expected 409, and had the expectation been
+written a little more loosely (`not 200`, say) it would have gone green while
+saying nothing at all about entitlement expiry. It re-mints the session first
+now, so the 409 is attributable to the entitlement.
+
+The general shape is worth keeping: when a test moves the clock, it moves it for
+everything with a lifetime, and the failure that results can be the one you were
+looking for by coincidence.
