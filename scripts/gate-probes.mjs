@@ -44,9 +44,19 @@ const append = (rel, text) => {
   writeFileSync(p, readFileSync(p, 'utf8') + text);
 };
 const run = (cmd, args) => trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0' }, timeout: 300_000 });
+/**
+ * The probe worktree commits under an identity of its own.
+ *
+ * Without it, `git commit` exits 128 wherever the host has no `user.email` —
+ * which is every CI runner, and is how this gate failed on its first push while
+ * passing on the machine that wrote it. A gate that needs the author's git
+ * config is a gate that does not run.
+ */
+const PROBE_IDENTITY = ['-c', 'user.name=gate-probes', '-c', 'user.email=gate-probes@localhost'];
+
 const commit = (msg) => {
   sh('git', ['-C', WT, 'add', '-A'], { stdio: 'ignore' });
-  sh('git', ['-C', WT, 'commit', '-q', '--no-verify', '-m', msg], { stdio: 'ignore' });
+  sh('git', ['-C', WT, ...PROBE_IDENTITY, 'commit', '-q', '--no-verify', '-m', msg], { stdio: 'ignore' });
   return sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
 };
 
@@ -624,7 +634,11 @@ function freshWorktree() {
   // The probes must measure the gates as they are ABOUT to be committed, not as
   // they were at HEAD — otherwise a gate can only be probed after it is pushed.
   sh('git', ['-C', WT, 'add', '-A'], { stdio: 'ignore' });
-  sh('git', ['-C', WT, 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'probe: working tree overlay'], { stdio: 'ignore' });
+  sh(
+    'git',
+    ['-C', WT, ...PROBE_IDENTITY, 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'probe: working tree overlay'],
+    { stdio: 'ignore' },
+  );
 }
 
 function overlayWorkingTree() {
