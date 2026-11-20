@@ -17,8 +17,8 @@
     "dev": "node --watch -r @swc-node/register src/main.api.ts",
     "dev:worker": "node --watch -r @swc-node/register src/main.worker.ts",
     "dev:casino": "node --watch -r @swc-node/register src/mocks/casino-platform/main.ts",
-    "db:migrate": "tsx scripts/db-migrate.ts",
-    "db:seed": "tsx scripts/db-seed.ts",
+    "db:migrate": "node -r @swc-node/register scripts/db-migrate.ts",
+    "db:seed": "node -r @swc-node/register scripts/db-seed.ts",
     "verify": "node scripts/verify.mjs",
     "board": "node scripts/board.mjs",
     "board:check": "node scripts/board.mjs --check",
@@ -27,7 +27,7 @@
     "test-guard": "node scripts/test-guard.mjs",
     "arch-check": "node scripts/arch-check.mjs",
     "review:request": "node scripts/review-request.mjs",
-    "smoke": "tsx scripts/smoke.ts",
+    "smoke": "node -r @swc-node/register scripts/smoke.ts",
     "gate-probes": "node scripts/gate-probes.mjs"
   },
   "dependencies": {

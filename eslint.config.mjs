@@ -116,6 +116,9 @@ export default tseslint.config(
           ] },
           { from: [{ element: { type: 'tooling' } }], allow: [
             { to: { element: { type: 'tooling' } } },
+            // The smoke run starts the simulated operators in its own process,
+            // because `pnpm smoke` should need nothing but Postgres (MIO-013 Q1).
+            { to: { element: { type: 'mocks' } } },
             { to: { element: { type: 'platform' } } },
             { to: { element: { type: 'contracts' } } },
             { to: { element: { type: 'module-root' } } },

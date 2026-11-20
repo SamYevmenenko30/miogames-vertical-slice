@@ -15,6 +15,9 @@ const steps = [
   ['unit tests', 'pnpm', ['test:unit']],
   ['integration tests', 'pnpm', ['test:integration']],
   ['build', 'pnpm', ['build']],
+  // The demo path, measured. MIO-011 found `pnpm dev` broken because nothing
+  // automated ran it; this is the answer to that class of defect.
+  ['smoke (all eight Part B steps, both operators)', 'pnpm', ['smoke']],
 ];
 
 const failed = [];
