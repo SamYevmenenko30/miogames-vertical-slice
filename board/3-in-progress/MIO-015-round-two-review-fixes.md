@@ -44,11 +44,85 @@ redemption that path replaced.
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | 2026-11-20 | `spec-gate` | PASS — 17 statements, 2 questions |
-| tests-from-spec | 2026-11-20 | `red-check` | PASS |
-| implement-to-green | 2026-11-20 | `verify` | PASS |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 17 statements, 2 questions (Q1 answered by Sam) |
+| tests-from-spec | 2026-11-20 | `red-check` | PASS — 3 added files, **3 assertion-red** |
+| implement-to-green | 2026-11-20 | `verify` | PASS — 242 tests in 35 files (was 228 in 32) |
+| implement-to-green | 2026-11-20 | `gate-probes` | PASS — 35 probes, 6 of them new |
 | review | — | `review:request` | pending |
+
+## Measured, not asserted
+
+The round-two reviewer's own two probe specs were run before and after, and removed — they are
+evidence, not part of this change. Theirs is the stronger measurement, because this session did not
+write them.
+
+| | Before | After |
+| --- | --- | --- |
+| **P2** — a stale lease holder writes its failure over a peer's success | PASSES: `status=failed`, `balance 400 -> 500`, operator granted once. The player kept the reward *and* the coins | **FAILS**: `AssertionError: expected 'issued' to be 'failed'`, and `balance 400 -> 400`. The probe asserts the defect, so its failure is the fix |
+| **P1** — a worker dies after the operator granted | PASSES: 3 operator grant calls, `attempts=0`, nothing recorded | **PASSES, deliberately** (Q1): the second grant still happens. `grantRequests` is 2, the status API reports it, the completed issuance is logged for reconciliation |
+| **P3** — the connection census | clean, oldest open tx 40 ms against a 600 ms operator | clean, 49 ms. Kept clean |
+| `pnpm db:seed` | never returned (reviewer waited 300 s) | **1.7 s** |
+| `docker stop worker` | **10.28 s, exit 137** — Docker's grace period exactly, then SIGKILL | **2.23 s, exit 0** |
+
+The two rows a reader has to be able to tell apart, printed from the stored state:
+
+```
+CLEAN first attempt:       status=issued  attempts=0  grantRequests=1  grantRequestedAt=set
+RECOVERED after a crash:   status=issued  attempts=0  grantRequests=2  grantRequestedAt=set
+the reconciliation query returns 1 row(s)
+```
 
 ## Review findings
 
-Filled in by the review phase.
+The four blockers are closed and the two false prose claims are corrected. What is worth keeping
+from doing it:
+
+**The remedy the review suggested does not work on its own, and it said so.** R2-B2's fix is
+"require `status = 'issuing' and claimed_by = <me>`", and `claimed_by` was `issuance-${process.pid}`
+— which the review had already measured as pid 25 in two containers at once. So the predicate had to
+be built on something real first. Per-process would still not have been enough: a single worker that
+re-claims a redemption its own earlier attempt is still inside would match its own name, and that
+attempt is precisely the one whose write-back must be refused. `claimed_by` is now
+`<instance>/<uuid>` — unique per claim, and still naming the worker, which is what the column was
+documented to be for.
+
+**The second trap was the one that would have shipped.** Making the three `UPDATE`s conditional and
+leaving the refund beside them still pays the player: the row is left alone and the coins come back
+anyway. The refund and both events are now inside the write-back's answer. S1 and S2 are the same
+race asserted twice on purpose — the row and the money fail independently.
+
+**R2-B1 was not this session's to decide, and the pipeline has a place for that.** Q1, answered by
+Sam. The duplicate grant stays, because removing it needs an operator-side guarantee nobody has, and
+the ambiguity stops being invisible. `attempts` was deliberately not re-pointed to carry the count
+(Q2): three MIO-010 statements are written against it meaning failures, so a second column that
+means one thing beat one column that means two.
+
+**Nit N4 stopped being reachable rather than being fixed.** `markFailed` still does not clear
+`external_ref`, which is how R2-B2's row ended up `failed` holding a successful reference. It can no
+longer get there: an `issued` row is never re-claimed, so an `issuing` row cannot carry a reference.
+Clearing it would be the wrong instinct anyway — a record of what we sent is exactly what R2-B1
+turns out to be about.
+
+**The gates were the more uncomfortable half.** `test-guard` existed for one failure mode and
+guarded the hardest route into it while `git rm` and `git mv` stood open; `red-check`'s newest rule
+had been switched off for a whole class of file by the fix that introduced it. Both are probed now,
+which is the only claim about a gate worth making.
+
+**And the new probes found a defect in an old probe, which is the argument for having them.**
+`board/wip-limit-of-one` sourced its two cards by walking the columns in order, so the first card
+ever to sit in `3-in-progress` — this one — became both the source and the destination of its own
+move: it was written and then deleted, the WIP violation never happened, and the probe failed with
+four "Ticket: MIO-015 names no such card" errors instead. `board/column-drift` three probes above it
+already guarded against exactly this. It was invisible while every card lived in `5-done`.
+
+## Not closed, on purpose
+
+`red-check` measures added FILES, so cases added inside an existing spec are still unmeasured — the
+route every test of the first fix round came in by. The run now names them and `test-guard` demands
+a declaration, but a declaration is a sentence. Closing it needs a tool that extracts added
+`it(...)` bodies and runs them at the merge-base, and the hard part is that an added case leans on
+the rest of its file: TD-0012, with the cost written down. For a one-day slice, naming the hole
+beats half-closing it.
+
+The review's other should-fix items (S5–S8, S10–S12, S14) and its nits are untouched — they are the
+user's call, and S9 is in here only because R2-B2 cannot be fixed without it.

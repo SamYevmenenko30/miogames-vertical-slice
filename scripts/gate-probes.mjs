@@ -57,9 +57,10 @@ const commit = (msg) => {
  * the moment those cards moved to another column — a probe that cannot run is a
  * gate that is no longer probed.
  */
-function someCards(count) {
+function someCards(count, { exclude = [] } = {}) {
   const found = [];
   for (const column of COLUMNS) {
+    if (exclude.includes(column)) continue;
     const dir = join(WT, 'board', column);
     let entries = [];
     try { entries = readdirSync(dir); } catch { continue; }
@@ -335,7 +336,15 @@ const probes = [
     expect: /WIP limit is 1/i,
     plant() {
       mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
-      for (const card of someCards(2)) {
+      // Sources from anywhere BUT the destination. A card already in
+      // `3-in-progress` has the same source and destination path here, so the
+      // write-then-remove below deleted it — leaving one card in the column (no
+      // violation) and every `Ticket:` trailer naming a card that no longer
+      // existed. The probe then failed for a reason that had nothing to do with
+      // the WIP limit, which is the same way round as `board/column-drift`
+      // already guards against. It went unnoticed while every card sat in
+      // `5-done`, and the first card to enter `3-in-progress` found it.
+      for (const card of someCards(2, { exclude: ['3-in-progress'] })) {
         const text = readFileSync(card.path, 'utf8').replace(/^column: .*$/m, 'column: 3-in-progress');
         writeFileSync(join(WT, 'board/3-in-progress', card.name), text);
         rmSync(card.path);
