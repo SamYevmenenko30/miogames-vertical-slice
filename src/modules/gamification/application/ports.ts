@@ -14,3 +14,24 @@ export interface WheelRepositoryPort {
   liveVersion(wheelId: string): Promise<WheelVersion | null>;
   versionAt(wheelId: string, version: number): Promise<WheelVersion | null>;
 }
+
+export type NewEntitlement = {
+  id: string;
+  playerId: string;
+  wheelId: string;
+  wheelVersion: number;
+  ruleId: string;
+  serverSeed: string;
+  seedHash: string;
+  sourceEventId: string;
+  grantedAt: Date;
+  expiresAt: Date;
+};
+
+export interface RewardRuleRepositoryPort {
+  activeRules(): Promise<import('../domain/reward-rule').RewardRule[]>;
+}
+
+export interface EntitlementRepositoryPort {
+  grant(entitlements: NewEntitlement[]): Promise<void>;
+}
