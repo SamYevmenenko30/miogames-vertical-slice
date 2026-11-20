@@ -1,0 +1,69 @@
+# MIO-008 — review:request
+# base 63dd89e93d4fb26758affdbae59b315a4e04114b
+# head f32b9999914aa7a0e0bf41f7b53c7dba23e00af3
+
+$ spec-gate
+MIO-008: 10 statements, 2 question(s)
+
+spec-gate MIO-008: PASS
+
+$ red-check
+red-check — base 63dd89e9, 2 added test file(s)
+
+✓  crash-red      src/modules/ledger/__tests__/ledger-isolation.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/ledger/__tests__/ledger.integration.spec.ts
+      Cannot find module
+
+2 file(s): 2 crash-red
+   2 of them are crash-red: they prove "cannot pass without the branch",
+   not "asserts the right thing". Prefer assertion-red where you can.
+
+red-check: PASS — every added test file fails without this branch.
+
+$ test-guard
+no test file was modified after it was written (base 63dd89e9, 2 added)
+
+test-guard: PASS
+
+$ arch-check
+gamification: declared, not built yet (card MIO-005 in 0-backlog)
+   rewards: declared, not built yet (card MIO-009 in 0-backlog)
+   event gamification.spin.completed: declared, no schema yet (card MIO-005)
+   event rewards.redemption.requested: declared, no schema yet (card MIO-009)
+   event rewards.redemption.issued: declared, no schema yet (card MIO-009)
+   event rewards.redemption.failed: declared, no schema yet (card MIO-009)
+   6 modules declared, 4 on disk, 5 events
+
+arch-check: PASS
+
+$ board:check
+15 cards, 0 in progress, base 63dd89e9
+⚠  MIO-000: no spec, waived — "This card builds the gate set itself; its correctness criterion is gate-probes, not a behaviour spec. Every card after it is gated on having one."
+
+board:check: PASS (1 warning(s))
+
+$ lint
+> miogames-slice@0.1.0 lint /Users/semenyevmenenko/work/mio-games
+> eslint .
+
+$ typecheck
+> miogames-slice@0.1.0 typecheck /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.json --noEmit
+
+$ tests
+> miogames-slice@0.1.0 test /Users/semenyevmenenko/work/mio-games
+> vitest run
+
+
+ RUN  v5.1.1 /Users/semenyevmenenko/work/mio-games
+
+
+ Test Files  20 passed (20)
+      Tests  128 passed (128)
+   Start at  15:39:21
+   Duration  4.60s (tests 52%, import 46%, transform 2%, worker 1%)
+
+$ build
+> miogames-slice@0.1.0 build /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.build.json

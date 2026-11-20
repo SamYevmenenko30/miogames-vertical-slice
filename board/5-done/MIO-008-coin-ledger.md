@@ -1,13 +1,13 @@
 ---
 id: MIO-008
 title: "ledger: append-only entries, idempotent movements, a balance the database keeps non-negative"
-column: 2-in-tests
+column: 5-done
 type: feature
 module: ledger
 part: "B, C"
 depends_on: [MIO-001]
 spec: docs/specs/MIO-008.md
-gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pass, review: pass }
 ---
 # MIO-008 — ledger: append-only entries, idempotent movements, a balance the database keeps non-negative
 
@@ -32,9 +32,21 @@ Step 5 of Part B and the hard half of Part C. Everything that moves coins calls 
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 10 statements, 2 questions |
 | tests-from-spec | 2026-11-20 | `red-check` | PASS — 2 files red at the merge-base |
-| implement-to-green | — | `verify` | — |
-| review | — | `review:request` | — |
+| implement-to-green | 2026-11-20 | `verify` | PASS — 128 tests |
+| review | 2026-11-20 | `review:request` | PASS — nine gates |
 
 ## Review findings
 
-_Filled in during review. A finding that is not fixed becomes a line in `docs/tech-debt.md`._
+**The append-only trigger and the idempotency idiom are incompatible, and the
+first implementation copied the wrong one.** `ON CONFLICT DO UPDATE ...
+RETURNING` is the neat way to learn who won a race in one statement — and it is
+an UPDATE, which this table's trigger refuses. Every ledger test failed with
+"entry is append-only: UPDATE is refused". Replaced with `DO NOTHING` plus a
+read in the same transaction.
+
+**That fix left two module AGENTS.md files contradicting each other** about
+which idiom is right, each correct about its own table. Prose arguing with prose
+is the thing a branch audit catches, and this repository has no branch-audit
+gate — the one gate from the larger pipeline deliberately left out. Both files
+now state the difference and why neither is wrong. Recorded in the evidence log
+as a known gap rather than pretended away.
