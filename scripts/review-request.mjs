@@ -19,6 +19,15 @@ if (!ticket) {
   process.exit(2);
 }
 
+// The probes take three and a half minutes, because each one runs a real gate
+// twice in a fresh worktree. They only ever change verdict when a GATE changes,
+// so they run when the branch touched one — and say so when they do not. A gate
+// whose feedback costs four minutes on every ticket is a gate people route
+// around (ADR-0007: CI is the arbiter, the local run is the loop).
+const gateFiles = git('diff', '--name-only', `${mergeBase()}..HEAD`)
+  .split('\n')
+  .filter((p) => /^scripts\/|^eslint\.config\.mjs$|^docs\/architecture\/architecture\.yaml$/.test(p));
+
 const steps = [
   ['spec-gate', 'node', ['scripts/spec-gate.mjs', ticket]],
   ['red-check', 'node', ['scripts/red-check.mjs']],
@@ -29,11 +38,16 @@ const steps = [
   ['typecheck', 'pnpm', ['typecheck']],
   ['tests', 'pnpm', ['test']],
   ['build', 'pnpm', ['build']],
-  ['gate-probes', 'node', ['scripts/gate-probes.mjs']],
+  ...(gateFiles.length ? [['gate-probes', 'node', ['scripts/gate-probes.mjs']]] : []),
 ];
 
 const base = mergeBase();
 const head = git('rev-parse', 'HEAD');
+if (gateFiles.length) {
+  console.log(`gate-probes will run — this branch changes a gate: ${gateFiles.join(', ')}\n`);
+} else {
+  console.log('gate-probes skipped — this branch changes no gate. CI runs them on every push.\n');
+}
 const results = [];
 const dir = join(ROOT, 'docs/ai/gate-runs');
 mkdirSync(dir, { recursive: true });
@@ -62,6 +76,7 @@ Gates on ${head.slice(0, 8)} (base ${base.slice(0, 8)}):
 | --- | --- | --- |
 ${results.map(row).join('\n')}
 
+${gateFiles.length ? '' : '`gate-probes` not run: this branch changes no gate (CI runs them on every push).\n'}
 Raw output: \`docs/ai/gate-runs/${ticket}-review-request.txt\`
 ───────────────────────────────────────────────────────────────────`);
 
