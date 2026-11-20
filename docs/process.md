@@ -3,12 +3,12 @@
 > The mechanics are here. The argument for them — the tooling, the five Part D answers and where
 > the strength is — is in [ai/how-ai-was-used.md](ai/how-ai-was-used.md).
 
-One person and an AI agent built *this repository*. The process is older than it: four months of
-daily use by a team of six on a live multi-market product, where each gate was added because
+One person and an AI agent built *this repository*. The process is older than it: a working
+method of my own, in daily use on a live multi-market product, where each gate was added because
 something real got through while it was missing. It transfers to a one-author build without
-changing shape, because of how it was built in the first place — every control is something a
-machine checks, and none of them waits for a second pair of eyes to be free. That is also what
-makes it reviewable here: the whole pipeline is one card of sixteen.
+changing shape, because every control is something a machine checks and none of them waits for a
+second pair of eyes to be free. That is also what makes it reviewable here: the whole pipeline is
+one card of sixteen.
 
 ## The three phases
 

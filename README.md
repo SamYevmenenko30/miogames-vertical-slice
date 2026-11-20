@@ -10,8 +10,8 @@ gamification logic. A third was onboarded as a rehearsal, to measure what that c
 files, none of them in the core ([scaling.md §2](docs/scaling.md)).
 
 The process around this — the specs, the board, the ten gates — is one card of sixteen; the other
-fifteen are the product. It is a distillation, not an invention for this exercise: the same
-pipeline has been in daily use for four months by a team of six on a live product
+fifteen are the product. It is a distillation, not an invention for this exercise — a
+working method of my own, already running on a live product
 ([Part D](docs/ai/how-ai-was-used.md)).
 
 ```bash

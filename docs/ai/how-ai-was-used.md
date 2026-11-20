@@ -10,11 +10,11 @@ in [evidence-log.md](evidence-log.md). This page is the *why*.
 **Where the process comes from.** It was not invented for this exercise. The pipeline this
 repository runs — spec-first phases in separate sessions, a red-on-base gate, a declaration gate
 on edited tests, probes that test the gates themselves, review as a session that never sees the
-implementing conversation — has been in daily use for four months by a **team of six** on a live
+implementing conversation — is **a working method of my own**, in daily use on a live
 multi-market product, and every gate in it exists because something real got through while it was
 missing. What is new here is the distillation: the same machinery rebuilt for one repository, one
 author and one day, small enough that a reviewer can read all of it. The measurements in this
-document are this slice's own; the reason each gate exists is four months older than this slice.
+document are this slice's own; the reasons the gates exist are older than this slice.
 
 ---
 
@@ -147,10 +147,10 @@ attention span — but the honest accounting is:
 
 ## What I would keep, and what I would drop
 
-The anchor is the middle of this range, because it is the measured one: at **six**, in daily
-use, this process keeps everything described here and adds two things the slice does not have — a
-branch audit that reads a branch's prose against its own diff, and a merge gate that requires a
-reviewer's posted artefact rather than an approval click.
+The anchor is the production version of this process, the one the slice distils: it keeps
+everything described here and adds two things the slice does not have — a branch audit that reads
+a branch's prose against its own diff, and a merge gate that requires a reviewer's posted artefact
+rather than an approval click.
 
 At **four engineers**: keep `red-check`, the boundary lint, `spec-gate`'s open questions, and
 `gate-probes`. Keep review as a separate session from implementation. Drop the three-session split
@@ -159,7 +159,7 @@ per-ticket gate-run archiving, drop the board-as-folders in favour of the team's
 
 At **forty**: all of the above, plus the branch audit — two module documents contradicted each
 other here about an idempotency idiom, nothing caught it, and I did, by chance, which is precisely
-the mechanism this project distrusts — plus the two gaps that are open in the six-person version
+the mechanism this project distrusts — plus the two gaps that are open in the production version
 as well, specified rather than built: per-case red-on-base and defect-class mutants, costed in
 [known-gaps.md](../known-gaps.md).
 

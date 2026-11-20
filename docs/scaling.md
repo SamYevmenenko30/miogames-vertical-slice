@@ -146,7 +146,7 @@ the operator dialects. An agent is very good at all of it. The caveat from doing
 *equally* fluent when it is wrong, and a confident wrong answer costs more than a slow right one.
 
 **Automate the verification: this is where the leverage is, and it is the half most teams skip.**
-Each of these replaced a human control that does not scale — on a team of six it is the review
+Each of these replaced a human control that does not scale — in a team it is the review
 bottleneck, on a one-author build it is absent altogether. They were earned on the former and
 they are what makes the latter possible:
 
