@@ -1,13 +1,13 @@
 ---
 id: MIO-008
 title: "ledger: append-only entries, idempotent movements, a balance the database keeps non-negative"
-column: 0-backlog
+column: 1-in-spec
 type: feature
 module: ledger
 part: "B, C"
 depends_on: [MIO-001]
 spec: docs/specs/MIO-008.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-008 — ledger: append-only entries, idempotent movements, a balance the database keeps non-negative
 
@@ -30,7 +30,7 @@ Step 5 of Part B and the hard half of Part C. Everything that moves coins calls 
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 10 statements, 2 questions |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
