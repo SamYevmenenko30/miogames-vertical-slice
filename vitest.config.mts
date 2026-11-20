@@ -25,6 +25,10 @@ export default defineConfig({
           include: ['src/**/*.spec.ts'],
           exclude: ['src/**/*.integration.spec.ts'],
           environment: 'node',
+          // The distribution tests draw 100k samples through HMAC, which is ~5s
+          // on a loaded machine — right at vitest's default and therefore flaky
+          // for a reason that has nothing to do with the code under test.
+          testTimeout: 20_000,
         },
       },
       {

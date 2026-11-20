@@ -85,6 +85,14 @@ for (const card of targets) {
     if (!bullets.length && !/^\s*None\.\s*$/m.test(questions)) {
       r.error(`${specPath}: "## Open questions" is neither a list of Q bullets nor "None."`);
     }
+    // A bullet that does not parse as a question is NOT a question the gate can
+    // check, and silence there is the whole failure this gate exists to prevent:
+    // a mislabelled `- **S/Q1 — …**` slipped through unchecked while it was open.
+    for (const line of questions.split('\n')) {
+      if (/^- /.test(line) && !/^- \*\*Q\d+\b/.test(line)) {
+        r.error(`${specPath}: "${line.trim().slice(0, 60)}" is a bullet under "## Open questions" that is not a "- **Q<n> — …**" question, so nothing checks whether it is answered`);
+      }
+    }
     for (const [, qid, body] of bullets) {
       if (!/\*\*Answered\*\*/.test(body)) {
         r.error(`${specPath} ${qid}: unanswered. A ticket does not leave the spec phase with an open question.`);

@@ -16,9 +16,20 @@
  *
  * Usage: pnpm gate-probes [name-fragment]
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
-import { ROOT, sh, trySh } from './lib/util.mjs';
+import { COLUMNS, ROOT, sh, trySh } from './lib/util.mjs';
 
 const WT = join(ROOT, '.tmp', `probe-wt-${process.pid}`);
 const filter = process.argv.slice(2).find((a) => !a.startsWith('-'));
@@ -34,6 +45,29 @@ const commit = (msg) => {
   sh('git', ['-C', WT, 'commit', '-q', '--no-verify', '-m', msg], { stdio: 'ignore' });
   return sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
 };
+
+/**
+ * Any two cards currently on the board, wherever they are.
+ *
+ * The first version of the board probes named cards by path, and silently broke
+ * the moment those cards moved to another column — a probe that cannot run is a
+ * gate that is no longer probed.
+ */
+function someCards(count) {
+  const found = [];
+  for (const column of COLUMNS) {
+    const dir = join(WT, 'board', column);
+    let entries = [];
+    try { entries = readdirSync(dir); } catch { continue; }
+    for (const name of entries) {
+      if (!name.endsWith('.md')) continue;
+      found.push({ column, name, path: join(dir, name) });
+      if (found.length === count) return found;
+    }
+  }
+  if (found.length < count) throw new Error(`gate-probes needs ${count} cards on the board, found ${found.length}`);
+  return found;
+}
 
 /** A module skeleton, so a boundary probe has somewhere legal to stand. */
 function scaffoldModule(name, deps = []) {
@@ -162,6 +196,21 @@ const probes = [
     },
   },
   {
+    name: 'spec-gate/a-bullet-that-is-not-a-question',
+    gate: ['node', ['scripts/spec-gate.mjs', 'MIO-999']],
+    expect: /is a bullet under "## Open questions" that is not a/i,
+    setup() {
+      write('board/2-in-tests/MIO-999-probe.md',
+        `---\nid: MIO-999\ntitle: "probe"\ncolumn: 2-in-tests\ntype: feature\nmodule: ledger\npart: "C"\ndepends_on: []\nspec: docs/specs/MIO-999.md\n---\n\n# probe\n`);
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **Q1 — should a refund be partial?** → **Answered** (Sam, 2026-11-20): no.\n`);
+    },
+    plant() {
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **S/Q1 — should a refund be partial?** Nobody has decided.\n`);
+    },
+  },
+  {
     name: 'spec-gate/answer-without-an-owner',
     gate: ['node', ['scripts/spec-gate.mjs', 'MIO-999']],
     expect: /answered without "\(who, YYYY-MM-DD\)"/i,
@@ -181,8 +230,10 @@ const probes = [
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /front-matter says column/i,
     plant() {
-      mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
-      renameSync(join(WT, 'board/0-backlog/MIO-008-coin-ledger.md'), join(WT, 'board/3-in-progress/MIO-008-coin-ledger.md'));
+      const [card] = someCards(1);
+      const target = card.column === '3-in-progress' ? '4-in-review' : '3-in-progress';
+      mkdirSync(join(WT, 'board', target), { recursive: true });
+      renameSync(card.path, join(WT, 'board', target, card.name));
     },
   },
   {
@@ -190,9 +241,19 @@ const probes = [
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /without a spec_waiver explaining why/i,
     plant() {
-      const p = join(WT, 'board/5-done/MIO-000-pipeline-and-gates.md');
-      const text = readFileSync(p, 'utf8').replace(/^spec_waiver:.*$/m, 'spec_waiver: ""');
-      writeFileSync(p, text);
+      // Whichever card waives its spec — named by its waiver, not by its path.
+      const waived = COLUMNS.flatMap((column) => {
+        const dir = join(WT, 'board', column);
+        let entries = [];
+        try { entries = readdirSync(dir); } catch { return []; }
+        return entries
+          .filter((name) => name.endsWith('.md'))
+          .map((name) => join(dir, name))
+          .filter((path) => /^spec:\s*none\s*$/m.test(readFileSync(path, 'utf8')));
+      });
+      if (waived.length === 0) throw new Error('no card waives its spec, so this probe has nothing to plant');
+      const text = readFileSync(waived[0], 'utf8').replace(/^spec_waiver:.*$/m, 'spec_waiver: ""');
+      writeFileSync(waived[0], text);
     },
   },
   {
@@ -200,13 +261,11 @@ const probes = [
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /WIP limit is 1/i,
     plant() {
-      for (const id of ['MIO-008-coin-ledger', 'MIO-006-wheel-configuration']) {
-        const from = join(WT, `board/0-backlog/${id}.md`);
-        mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
-        const to = join(WT, `board/3-in-progress/${id}.md`);
-        const text = readFileSync(from, 'utf8').replace('column: 0-backlog', 'column: 3-in-progress');
-        writeFileSync(to, text);
-        rmSync(from);
+      mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
+      for (const card of someCards(2)) {
+        const text = readFileSync(card.path, 'utf8').replace(/^column: .*$/m, 'column: 3-in-progress');
+        writeFileSync(join(WT, 'board/3-in-progress', card.name), text);
+        rmSync(card.path);
       }
     },
   },
@@ -278,6 +337,26 @@ const probes = [
       write('src/platform/probe/__tests__/vacuous.spec.ts',
         `import { expect, it } from 'vitest';\n\nit('S2 — vacuous', () => { expect(2 + 2).toBe(4); });\n`);
       commit('test: two specs in one directory\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/a-missing-table-is-crash-red-not-a-missing-environment',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // A test whose setup touches a table the branch adds must come out crash-red.
+    // Classifying that as "the environment was missing" fails a correct ticket
+    // closed, which is exactly what the first version of the classifier did.
+    expectPass: true,
+    expect: /crash-red/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-missing-table.integration.spec.ts',
+        `import { beforeAll, expect, it } from 'vitest';\nimport { createTestDb } from './test/db.helper';\n\n` +
+        `let sql: Awaited<ReturnType<typeof createTestDb>>;\n` +
+        `beforeAll(async () => { sql = await createTestDb('probe-missing'); await sql.sql\`select 1 from probe_absent\`; });\n` +
+        `it('S1 — probe', () => { expect(1).toBe(1); });\n`);
+      commit('test: a spec whose setup needs a table the branch adds\n');
       return base;
     },
   },
@@ -364,6 +443,22 @@ for (const probe of selected) {
   const env = probe.expectEnv ? probe.expectEnv(planted) : {};
   const res = trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0', ...env }, timeout: 300_000 });
 
+  // A few probes assert the opposite: the gate must ACCEPT the planted state, and
+  // say the right thing about it. That is how a classifier is kept honest — the
+  // bug it guards against is a correct ticket failed closed, not one let through.
+  if (probe.expectPass) {
+    if (!res.ok) {
+      failures.push(`${probe.name}: the gate REJECTED a state it should accept.\n${indent(res.out)}`);
+      console.log(`✗  ${probe.name}  (gate went red)`);
+    } else if (!probe.expect.test(res.out ?? '')) {
+      failures.push(`${probe.name}: the gate passed, but did not say ${probe.expect}.\n${indent(res.out)}`);
+      console.log(`✗  ${probe.name}  (wrong verdict)`);
+    } else {
+      console.log(`✓  ${probe.name}`);
+    }
+    continue;
+  }
+
   if (res.ok) {
     failures.push(`${probe.name}: the gate PASSED on a planted violation. The gate is not doing its job.\n${indent(res.out)}`);
     console.log(`✗  ${probe.name}  (gate stayed green)`);
@@ -386,4 +481,7 @@ if (failures.length) {
   console.log(`gate-probes: FAIL — ${failures.length} of ${selected.length} probe(s)`);
   process.exit(1);
 }
-console.log(`gate-probes: PASS — all ${selected.length} gates fail on a planted violation, and pass without one.`);
+console.log(
+  `gate-probes: PASS — all ${selected.length} probes behaved: each gate goes red on its planted violation ` +
+    'and green without one, and the classifier probes accept what they should.',
+);
