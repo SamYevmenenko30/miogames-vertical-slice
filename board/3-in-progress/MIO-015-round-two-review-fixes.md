@@ -47,8 +47,18 @@ redemption that path replaced.
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 17 statements, 2 questions (Q1 answered by Sam) |
 | tests-from-spec | 2026-11-20 | `red-check` | PASS — 3 added files, **3 assertion-red** |
 | implement-to-green | 2026-11-20 | `verify` | PASS — 242 tests in 35 files (was 228 in 32) |
-| implement-to-green | 2026-11-20 | `gate-probes` | PASS — 35 probes, 6 of them new |
+| implement-to-green | 2026-11-20 | `gate-probes` | PASS — 35 probes, 6 of them new ([output](../../docs/ai/gate-runs/MIO-015-gate-probes.txt)) |
 | review | — | `review:request` | pending |
+
+Both runs' output is committed, because the evidence log's own complaint about the earlier tickets
+is that their verdicts "are no longer recoverable by anyone":
+[`verify`](../../docs/ai/gate-runs/MIO-015-verify.txt) and
+[`gate-probes`](../../docs/ai/gate-runs/MIO-015-gate-probes.txt). The probe run was made in a
+private worktree at this branch rather than in the shared checkout: another session ran
+`git checkout main` there during an earlier attempt, and because `gate-probes` overlays the working
+tree, that run measured `main`'s `red-check.mjs` and reported three failures for rules that exist
+only here. Nothing was lost but the measurement, and a measurement whose provenance is unclear is
+worth re-taking rather than explaining.
 
 ## Measured, not asserted
 
