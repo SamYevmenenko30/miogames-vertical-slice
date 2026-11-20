@@ -93,6 +93,25 @@ jobs:
   gate-probes:
     name: gate-probes (the gates must fail on a planted violation)
     runs-on: ubuntu-latest
+    # One probe asserts how red-check classifies a DATABASE error — that
+    # "relation does not exist" is crash-red (the branch adds the table) and not
+    # a missing environment. Measuring that needs a database: without one the run
+    # really IS a missing environment, red-check fails closed exactly as designed,
+    # and the probe fails for being right. Found on the first push, by CI.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mio
+          POSTGRES_PASSWORD: mio
+          POSTGRES_DB: mio
+        ports: ['5440:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://mio:mio@localhost:5440/mio
+      DATABASE_URL_TEST: postgres://mio:mio@localhost:5440/mio
+      DATABASE_OWNER_URL: postgres://mio:mio@localhost:5440/mio
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
