@@ -12,3 +12,5 @@ not enforced on the other side belongs here, not in a comment.
 | TD-0005 | No rate limiting on the player API | A player can hammer `/v1/spins`; correctness holds (entitlements run out) but the cost is ours | 1 day |
 | TD-0006 | Admin API authorises by tenant key, with no roles | Any operator key can change that operator's wheel odds; there is no "read-only analyst" | 2 days once roles exist |
 | TD-0008 | `postgres` is pinned to 3.x because 4.x is ESM-only and this is a CommonJS project | NestJS, `tsc`, swc and vitest are all on the well-trodden CJS path here; going ESM means suffixing every relative import with `.js` | 1 day, as one change: `"type": "module"`, `moduleResolution: nodenext`, extensions everywhere, then unpin |
+| TD-0009 | Operator signing secrets are encrypted with a key derived from `PLAYER_TOKEN_SECRET` by HKDF | One secret with two HKDF-separated purposes is sound, but a real deployment wants independent, rotatable, KMS-managed keys — and rotation here means re-encrypting every row | 2 days: a key-id column on the ciphertext, a KMS provider in `platform/crypto`, and a re-encrypt job |
+

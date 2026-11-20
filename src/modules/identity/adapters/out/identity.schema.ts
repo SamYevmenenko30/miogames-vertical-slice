@@ -16,6 +16,7 @@ export const tenantApiKey = identity.table(
     keyId: text('key_id').primaryKey(),
     tenantId: text('tenant_id').notNull(),
     secretDigest: text('secret_digest').notNull(),
+    secretEncrypted: text('secret_encrypted'),
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

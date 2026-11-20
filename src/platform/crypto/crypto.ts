@@ -1,4 +1,12 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  hkdfSync,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 
 export function hmacHex(secret: string, payload: string): string {
   return createHmac('sha256', secret).update(payload, 'utf8').digest('hex');
@@ -63,4 +71,34 @@ export function uniform01(seedHex: string, label: string): number {
   // mapping to [0, 1) stays uniform instead of quietly clustering.
   const value = digest.readBigUInt64BE(0) >> 11n;
   return Number(value) / 2 ** 53;
+}
+
+/**
+ * Webhook secrets must be RECOVERABLE, which is the opposite of a password.
+ *
+ * MIO-002 stored only a digest, which is correct for something you compare and
+ * wrong for a shared signing key: HMAC verification needs the key itself. So the
+ * secret is encrypted at rest (AES-256-GCM) with a key derived from the platform
+ * secret by HKDF, and the derivation's `info` string keeps that key separate from
+ * the one signing player tokens. In production both would be KMS-managed —
+ * TD-0009.
+ */
+export function deriveKey(secret: string, purpose: string): Buffer {
+  return Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), Buffer.from(purpose, 'utf8'), 32));
+}
+
+export function encryptSecret(plaintext: string, key: Buffer): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  return `v1.${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${body.toString('base64url')}`;
+}
+
+export function decryptSecret(ciphertext: string, key: Buffer): string {
+  const parts = ciphertext.split('.');
+  if (parts.length !== 4 || parts[0] !== 'v1') throw new Error('unrecognised secret ciphertext');
+  const [, iv, tag, body] = parts as [string, string, string, string];
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+  return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
 }

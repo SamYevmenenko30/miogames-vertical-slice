@@ -1,4 +1,4 @@
-import { sha256Hex } from '../../../platform/crypto/crypto';
+import { decryptSecret, sha256Hex, verifySignature } from '../../../platform/crypto/crypto';
 import type { UnitOfWork } from '../../../platform/db/unit-of-work';
 import type { ExternalPlayerId, Player, PlayerClaims, PlayerId } from '../domain/player';
 import type { AuthenticatedOperator, Tenant } from '../domain/tenant';
@@ -15,7 +15,44 @@ export class IdentityFacade {
     private readonly tenants: TenantRepositoryPort,
     private readonly players: PlayerRepositoryPort,
     private readonly tokens: PlayerTokenService,
+    /** Decrypts stored signing secrets. Derived from the platform secret. */
+    private readonly secretKey: Buffer = Buffer.alloc(32),
   ) {}
+
+  /**
+   * Verify an operator webhook signature.
+   *
+   * This lives here, and not in the ingestion module, because the signing secret
+   * must not leave the module that owns credentials. Ingestion asks "is this
+   * signature valid for this key id"; it never sees the key.
+   */
+  async verifyOperatorSignature(input: {
+    keyId: string;
+    payload: string;
+    signature: string;
+    timestamp: number;
+    nowSeconds: number;
+    toleranceSeconds: number;
+  }): Promise<AuthenticatedOperator | null> {
+    const found = await this.uow.withTransaction(async () => this.tenants.findByKeyId(input.keyId));
+    if (!found || !found.active || found.tenant.status !== 'active' || !found.secretEncrypted) return null;
+
+    let secret: string;
+    try {
+      secret = decryptSecret(found.secretEncrypted, this.secretKey);
+    } catch {
+      return null;
+    }
+    const ok = verifySignature({
+      secret,
+      payload: input.payload,
+      signature: input.signature,
+      timestamp: input.timestamp,
+      nowSeconds: input.nowSeconds,
+      toleranceSeconds: input.toleranceSeconds,
+    });
+    return ok ? this.tenants.authenticatedOperatorOf(found.tenant, input.keyId) : null;
+  }
 
   /**
    * Resolve an operator's API credentials. A wrong secret, an unknown key id and a

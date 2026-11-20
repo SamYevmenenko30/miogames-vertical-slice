@@ -1,0 +1,79 @@
+# MIO-004 — review:request
+# base b160f337ce4097118a9f738d255e48a2f34f7629
+# head 7ea2e167099f35ef427bb800496dd90f8903a359
+
+$ spec-gate
+MIO-004: 9 statements, 2 question(s)
+
+spec-gate MIO-004: PASS
+
+$ red-check
+red-check — base b160f337, 2 added test file(s)
+
+✓  crash-red      src/modules/ingestion/__tests__/ingest.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/ingestion/__tests__/ingestion-isolation.integration.spec.ts
+      Cannot find module
+
+2 file(s): 2 crash-red
+   2 of them are crash-red: they prove "cannot pass without the branch",
+   not "asserts the right thing". Prefer assertion-red where you can.
+
+red-check: PASS — every added test file fails without this branch.
+
+$ test-guard
+no test file was modified after it was written (base b160f337, 2 added)
+
+test-guard: PASS
+
+$ arch-check
+gamification: declared, not built yet (card MIO-005 in 0-backlog)
+   ledger: declared, not built yet (card MIO-008 in 0-backlog)
+   rewards: declared, not built yet (card MIO-009 in 0-backlog)
+   event gamification.spin.completed: declared, no schema yet (card MIO-005)
+   event rewards.redemption.requested: declared, no schema yet (card MIO-009)
+   event rewards.redemption.issued: declared, no schema yet (card MIO-009)
+   event rewards.redemption.failed: declared, no schema yet (card MIO-009)
+   6 modules declared, 3 on disk, 5 events
+
+arch-check: PASS
+
+$ board:check
+15 cards, 0 in progress, base b160f337
+⚠  MIO-000: no spec, waived — "This card builds the gate set itself; its correctness criterion is gate-probes, not a behaviour spec. Every card after it is gated on having one."
+
+board:check: PASS (1 warning(s))
+
+$ lint
+> miogames-slice@0.1.0 lint /Users/semenyevmenenko/work/mio-games
+> eslint .
+
+
+/Users/semenyevmenenko/work/mio-games/src/modules/ingestion/application/ingest-deposit.usecase.ts
+  5:1  error  All imports in the declaration are only used as types. Use `import type`  @typescript-eslint/consistent-type-imports
+
+✖ 1 problem (1 error, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+
+ ELIFECYCLE  Command failed with exit code 1.
+
+$ typecheck
+> miogames-slice@0.1.0 typecheck /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.json --noEmit
+
+$ tests
+> miogames-slice@0.1.0 test /Users/semenyevmenenko/work/mio-games
+> vitest run
+
+
+ RUN  v5.1.1 /Users/semenyevmenenko/work/mio-games
+
+
+ Test Files  18 passed (18)
+      Tests  113 passed (113)
+   Start at  15:34:07
+   Duration  4.39s (tests 49%, import 48%, transform 3%, worker 1%)
+
+$ build
+> miogames-slice@0.1.0 build /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.build.json
