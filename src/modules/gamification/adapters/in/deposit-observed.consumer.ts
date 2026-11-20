@@ -1,5 +1,4 @@
 import { CASINO_DEPOSIT_OBSERVED, casinoDepositObservedSchema } from '../../../../contracts/events';
-import { withTenant } from '../../../../platform/db/tenant-context';
 import { IdempotentConsumer, type DeliveredEvent } from '../../../../platform/events/idempotent-consumer';
 import type { UnitOfWork } from '../../../../platform/db/unit-of-work';
 import type { GrantEntitlementsUseCase } from '../../application/grant-entitlements.usecase';
@@ -29,12 +28,12 @@ export class DepositObservedConsumer extends IdempotentConsumer {
       // contract changed under us — loud, not swallowed.
       throw new Error(`casino.deposit.observed payload does not match its schema: ${parsed.error.message}`);
     }
-    await withTenant(event.tenantId, async () =>
-      this.grant.execute({
-        externalPlayerId: parsed.data.externalPlayerId,
-        amount: parsed.data.amount,
-        sourceEventId: event.id,
-      }),
-    );
+    // Already inside the event's tenant scope: the base class entered it before
+    // the transaction, which is what lets the unit of work tell the database.
+    await this.grant.execute({
+      externalPlayerId: parsed.data.externalPlayerId,
+      amount: parsed.data.amount,
+      sourceEventId: event.id,
+    });
   }
 }

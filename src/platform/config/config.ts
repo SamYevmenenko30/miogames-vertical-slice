@@ -40,6 +40,14 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   DATABASE_URL: z.string().min(1).refine((value) => URL.canParse(value), 'must be a valid connection string'),
+  /**
+   * The owner connection. Migrations run here, and so does the single deliberate
+   * cross-tenant read (the issuance retry sweep), because row-level security does
+   * not apply to a table's owner. Defaults to DATABASE_URL so a single-role
+   * development setup still works — and `pnpm verify` runs the suite with them
+   * genuinely separate.
+   */
+  DATABASE_OWNER_URL: z.string().optional(),
   DATABASE_POOL_MAX: count(10),
 
   /** Signs the short-lived player tokens an operator exchanges its player id for. */
@@ -69,6 +77,7 @@ export type AppConfig = Readonly<{
   workerHealthPort: number;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   databaseUrl: string;
+  databaseOwnerUrl: string;
   databasePoolMax: number;
   playerTokenSecret: string;
   playerTokenTtlSeconds: number;
@@ -104,6 +113,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     workerHealthPort: e.WORKER_HEALTH_PORT,
     logLevel: e.LOG_LEVEL,
     databaseUrl: e.DATABASE_URL,
+    databaseOwnerUrl: e.DATABASE_OWNER_URL ?? e.DATABASE_URL,
     databasePoolMax: e.DATABASE_POOL_MAX,
     playerTokenSecret: e.PLAYER_TOKEN_SECRET,
     playerTokenTtlSeconds: e.PLAYER_TOKEN_TTL_SECONDS,

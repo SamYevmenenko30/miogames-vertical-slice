@@ -37,7 +37,11 @@ services:
     environment:
       NODE_ENV: development
       PORT: '3000'
-      DATABASE_URL: postgres://mio:mio@postgres:5432/mio
+      # The APPLICATION role, so row-level security is in force (ADR-0006).
+      DATABASE_URL: postgres://mio_app:mio_app@postgres:5432/mio
+      # The owner, for the single cross-tenant job. Migrations use it too, but
+      # they run as their own step, never from a service.
+      DATABASE_OWNER_URL: postgres://mio:mio@postgres:5432/mio
       CASINO_MOCK_BASE_URL: http://casino-mock:3010
       PLAYER_TOKEN_SECRET: dev-player-token-secret-change-me
       LOG_LEVEL: debug
@@ -52,8 +56,10 @@ services:
     environment:
       NODE_ENV: development
       WORKER_HEALTH_PORT: '3002'
-      DATABASE_URL: postgres://mio:mio@postgres:5432/mio
+      DATABASE_URL: postgres://mio_app:mio_app@postgres:5432/mio
+      DATABASE_OWNER_URL: postgres://mio:mio@postgres:5432/mio
       CASINO_MOCK_BASE_URL: http://casino-mock:3010
+      PLAYER_TOKEN_SECRET: dev-player-token-secret-change-me
       LOG_LEVEL: debug
     ports: ['3002:3002']
     depends_on:

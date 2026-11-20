@@ -15,6 +15,8 @@ export type Database = {
 };
 
 export const DATABASE = Symbol('Database');
+/** The owner connection: migrations and the single cross-tenant job. */
+export const OWNER_DATABASE = Symbol('OwnerDatabase');
 
 export function createDatabase(options: { url: string; max?: number }): Database {
   const sql = postgres(options.url, {

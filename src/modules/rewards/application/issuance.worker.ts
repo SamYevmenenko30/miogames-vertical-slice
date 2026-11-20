@@ -16,6 +16,7 @@ import type { IssueRewardUseCase } from './issue-reward.usecase';
  */
 export class IssuanceWorker {
   constructor(
+    /** The OWNER unit of work: this is the one cross-tenant read in the system. */
     private readonly uow: UnitOfWork,
     private readonly redemptions: RedemptionRepositoryPort & {
       dueForRetry(now: Date, limit: number): Promise<Array<{ id: string; tenantId: string }>>;

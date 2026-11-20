@@ -11,7 +11,10 @@ import { applyMigrations } from '../platform/db/migrator';
  * bugs for hours. So: create, migrate, hand it over, drop.
  */
 export type TestDb = {
+  /** The OWNER connection string: migrations and seeding bypass the policies. */
   url: string;
+  /** The APPLICATION role's connection string: row-level security applies. */
+  appUrl: string;
   sql: postgres.Sql;
   drop: () => Promise<void>;
 };
@@ -48,9 +51,14 @@ export async function createTestDb(label: string): Promise<TestDb> {
   url.pathname = `/${name}`;
   await applyMigrations(url.toString());
 
+  const appUrl = new URL(url.toString());
+  appUrl.username = 'mio_app';
+  appUrl.password = 'mio_app';
+
   const sql = postgres(url.toString(), { max: 4, onnotice: () => {} });
   return {
     url: url.toString(),
+    appUrl: appUrl.toString(),
     sql,
     drop: async () => {
       await sql.end({ timeout: 5 });
