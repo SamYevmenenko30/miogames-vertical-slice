@@ -64,7 +64,18 @@ for (const c of cards) {
     }
   }
   if (COLUMNS.indexOf(c.folder) >= COLUMNS.indexOf('2-in-tests')) {
-    if (!c.data.spec || !existsSync(join(ROOT, c.data.spec))) {
+    if (c.data.spec === 'none') {
+      // An escape hatch with a reason, like every other declaration in this
+      // pipeline. MIO-000 builds the gates themselves and has nothing to spec;
+      // a card that waives its spec has to say why, in the card, where a
+      // reviewer reads it.
+      const why = String(c.data.spec_waiver ?? '');
+      if (why.trim().length < 20) {
+        r.error(`${id}: declares "spec: none" without a spec_waiver explaining why (at least a sentence)`);
+      } else {
+        r.warn(`${id}: no spec, waived — "${why}"`);
+      }
+    } else if (!c.data.spec || !existsSync(join(ROOT, c.data.spec))) {
       r.error(`${id}: is in ${c.folder} but has no spec at ${c.data.spec ?? '(unset)'}`);
     }
   }

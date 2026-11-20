@@ -186,6 +186,16 @@ const probes = [
     },
   },
   {
+    name: 'board/spec-waiver-without-a-reason',
+    gate: ['node', ['scripts/board.mjs', '--check']],
+    expect: /without a spec_waiver explaining why/i,
+    plant() {
+      const p = join(WT, 'board/5-done/MIO-000-pipeline-and-gates.md');
+      const text = readFileSync(p, 'utf8').replace(/^spec_waiver:.*$/m, 'spec_waiver: ""');
+      writeFileSync(p, text);
+    },
+  },
+  {
     name: 'board/wip-limit-of-one',
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /WIP limit is 1/i,
@@ -259,17 +269,35 @@ function freshWorktree() {
 }
 
 function overlayWorkingTree() {
-  const status = sh('git', ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
-  for (const entry of status) {
-    const code = entry.slice(0, 2);
-    const path = entry.slice(3);
-    if (path.startsWith('.tmp/') || path.startsWith('node_modules/') || path.startsWith('dist/')) continue;
-    const src = join(ROOT, path);
-    const dest = join(WT, path);
-    if (code.includes('D') || !existsSync(src)) { rmSync(dest, { recursive: true, force: true }); continue; }
+  const fields = sh('git', ['status', '--porcelain', '-z', '--untracked-files=all']).split('\0');
+  const skip = (p) => p.startsWith('.tmp/') || p.startsWith('node_modules/') || p.startsWith('dist/');
+  const remove = (p) => rmSync(join(WT, p), { recursive: true, force: true });
+  const copy = (p) => {
+    const src = join(ROOT, p);
+    const dest = join(WT, p);
+    if (!existsSync(src)) return remove(p);
     mkdirSync(dirname(dest), { recursive: true });
     if (statSync(src).isDirectory()) cpSync(src, dest, { recursive: true });
     else cpSync(src, dest);
+  };
+  for (let i = 0; i < fields.length; i += 1) {
+    const entry = fields[i];
+    if (!entry) continue;
+    const code = entry.slice(0, 2);
+    const path = entry.slice(3);
+    // A rename or copy occupies TWO NUL-separated fields: the new path, then the
+    // old one. Reading only the first leaves the old file in place, which showed
+    // up as a duplicate board card — and as a probe that proved nothing.
+    if (code.startsWith('R') || code.startsWith('C')) {
+      const old = fields[i + 1];
+      i += 1;
+      if (old && !skip(old)) remove(old);
+      if (!skip(path)) copy(path);
+      continue;
+    }
+    if (skip(path)) continue;
+    if (code.includes('D')) remove(path);
+    else copy(path);
   }
 }
 
