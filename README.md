@@ -31,9 +31,9 @@ one `verify` runs) asserts without touching a tracked file.
 | **A — architecture** | [docs/architecture/README.md](docs/architecture/README.md) · [diagrams](docs/architecture/diagram.md) · [7 ADRs](docs/decisions/) · [the machine-checked model](docs/architecture/architecture.yaml) |
 | **B — the working prototype** | `pnpm smoke` — 14 asserted steps across both operators · [captured samples](docs/samples/part-b-flow.http.md), refreshed with `pnpm smoke:samples` |
 | **C — reliability & security** | [docs/reliability.md](docs/reliability.md) — every case, its mechanism, and the test that proves it |
-| **D — AI-native development** | **[how AI was used, and why this process](docs/ai/how-ai-was-used.md)** — start here · [what the gates caught](docs/ai/evidence-log.md) · [which decisions were mine](docs/ai/human-decisions.md) · [AGENTS.md](AGENTS.md) · [the phase skills](.claude/skills/) · [the pipeline's mechanics](docs/process.md) · [raw gate runs](docs/ai/gate-runs/) |
+| **D — AI-native development** | **[how AI was used, and why this process](docs/ai/how-ai-was-used.md)** — start here · [what the gates caught](docs/ai/evidence-log.md) · [which decisions were mine](docs/ai/human-decisions.md) · [AGENTS.md](AGENTS.md) · [the phase skills](.claude/skills/) · [the pipeline's mechanics](docs/process.md) · [what it still cannot catch, and what the answer is](docs/known-gaps.md) · [raw gate runs](docs/ai/gate-runs/) |
 | **E — scaling the product** | [docs/scaling.md](docs/scaling.md) · [the first 90 days and the team](docs/plan/90-days.md) |
-| **Deliverables** | setup above · [assumptions](docs/assumptions.md) · [tech debt, deliberate](docs/tech-debt.md) · [observability](docs/observability.md) · [the board](board/) |
+| **Deliverables** | setup above · [assumptions](docs/assumptions.md) · [tech debt, deliberate](docs/tech-debt.md) · [known gaps with designed answers](docs/known-gaps.md) · [observability](docs/observability.md) · [the board](board/) |
 
 ## What to look at first
 

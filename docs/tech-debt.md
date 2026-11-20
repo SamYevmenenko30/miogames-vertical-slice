@@ -3,6 +3,10 @@
 Known, deliberate, and written down rather than discovered later. A cross-module promise that is
 not enforced on the other side belongs here, not in a comment.
 
+Everything here is a day or two of work. The gaps that are bigger than that — and the designed
+answers to them — are in [known-gaps.md](known-gaps.md): what the gates are structurally unable to
+catch, what would close each one, and what it would cost.
+
 | ID | Item | Why it is debt | Cost of fixing |
 | --- | --- | --- | --- |
 | TD-0001 | Balance is a projection with no reconciliation job | `SUM(ledger_entry)` and `ledger_balance` can only diverge through a bug, but nothing would tell us | 1 day: a nightly job + a metric |

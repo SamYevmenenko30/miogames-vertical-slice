@@ -156,3 +156,10 @@ the right thing; there is no branch audit, so prose drift is caught only by peop
 distinguishes *agent from human* but not *which agent* — every commit here carries the same
 committer and the same `Co-Authored-By`, which already caused one reviewer to attribute a merge to
 the wrong session.
+
+The first of those three is the structural one, and it has a designed answer that is not here:
+per-case red-on-base, defect-class mutants, and a specification audit. That answer, the
+requirements map beside it, and the parallel-probing method for finding a specification's real
+forks before implementation are written up with their costs in
+[known-gaps.md](../known-gaps.md) — because a gap with a designed answer is engineering, and one
+without is a surprise.
