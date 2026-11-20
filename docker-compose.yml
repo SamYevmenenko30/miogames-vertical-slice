@@ -1,0 +1,64 @@
+# Reproducible local execution, as the assignment prefers.
+#
+#   docker compose up -d        postgres + api + worker + both simulated operators
+#   docker compose up -d postgres   just the database (what the test suite needs)
+#
+# Migrations are NOT applied by any service on boot (see docs/local-development.md);
+# run `pnpm db:migrate` as its own step, exactly as a deploy would.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mio
+      POSTGRES_PASSWORD: mio
+      POSTGRES_DB: mio
+    # 5440, because 5432 and 5433 are usually already taken by another local stack.
+    ports: ['5440:5432']
+    volumes: ['mio-pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mio -d mio']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  casino-mock:
+    build: { context: ., dockerfile: Dockerfile, target: dev }
+    command: ['pnpm', 'dev:casino']
+    environment:
+      NODE_ENV: development
+      CASINO_MOCK_PORT: '3010'
+    ports: ['3010:3010']
+    volumes: ['./src:/app/src:ro']
+
+  api:
+    build: { context: ., dockerfile: Dockerfile, target: dev }
+    command: ['pnpm', 'dev']
+    environment:
+      NODE_ENV: development
+      PORT: '3000'
+      DATABASE_URL: postgres://mio:mio@postgres:5432/mio
+      CASINO_MOCK_BASE_URL: http://casino-mock:3010
+      PLAYER_TOKEN_SECRET: dev-player-token-secret-change-me
+      LOG_LEVEL: debug
+    ports: ['3000:3000']
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes: ['./src:/app/src:ro']
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile, target: dev }
+    command: ['pnpm', 'dev:worker']
+    environment:
+      NODE_ENV: development
+      WORKER_HEALTH_PORT: '3002'
+      DATABASE_URL: postgres://mio:mio@postgres:5432/mio
+      CASINO_MOCK_BASE_URL: http://casino-mock:3010
+      LOG_LEVEL: debug
+    ports: ['3002:3002']
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes: ['./src:/app/src:ro']
+
+volumes:
+  mio-pgdata:

@@ -48,7 +48,7 @@ export default tseslint.config(
       'boundaries/files': [
         { pattern: `${MODULE}/index.ts`, category: 'facade' },
         { pattern: `${MODULE}/*.module.ts`, category: 'wiring' },
-        { pattern: ['**/*.spec.ts', '**/__tests__/**/*'], category: 'test' },
+        { pattern: ['**/*.spec.ts', '**/__tests__/**/*', 'src/test/**/*'], category: 'test' },
       ],
     },
     rules: {
@@ -134,7 +134,13 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        // `const { secret: _omitted, ...rest } = config` is the omit idiom, not dead code.
+        ignoreRestSiblings: true,
+      }],
     },
   },
   {
@@ -163,7 +169,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.spec.ts', '**/__tests__/**/*.ts'],
+    files: ['**/*.spec.ts', '**/__tests__/**/*.ts', 'src/test/**/*.ts'],
     rules: {
       'boundaries/dependencies': 'off',
       'boundaries/no-unknown-files': 'off',

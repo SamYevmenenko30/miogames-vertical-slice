@@ -106,6 +106,11 @@ scripts/                 the gates
 - `red-check` borrows `node_modules` from the current tree, so a test that reaches outside its
   own worktree can contaminate the measurement. Keep test fixtures inside the test file's own
   directory.
+- `postgres.js` raw-`sql` parameters must be **strings**, not `Date`s. Under vitest a `Date`
+  parameter reaches `Buffer.byteLength` and throws `ERR_INVALID_ARG_TYPE` even though
+  `instanceof Date` is true; the same code works under `tsx`. Pass `.toISOString()` with an
+  explicit `::timestamptz` cast. (Drizzle's own query builder serialises dates correctly — this
+  applies only to the handful of raw statements.)
 - Integration tests get a database per test file. Do not share a schema between files and do not
   clean up in `afterEach` only — clean on the way **in**, because the previous file's crash is
   not your file's problem to inherit.

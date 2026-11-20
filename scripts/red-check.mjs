@@ -98,11 +98,20 @@ function resetWorktree() {
   sh('git', ['-C', WT, 'clean', '-fdx', '-e', 'node_modules'], { stdio: 'ignore' });
 }
 
-/** Files the branch added that a single spec legitimately needs: fixtures beside it. */
+/**
+ * Files the branch added that a single spec legitimately needs: fixtures and
+ * helpers beside it. NEVER another spec file — a sibling spec staged into the
+ * base worktree can manufacture the verdict of the file being measured, which
+ * is the one thing this gate must not allow. (It did, until a run printed
+ * "staged beside it: …integration.spec.ts" and gave the game away.)
+ */
 function supportFor(spec) {
   const dir = dirname(spec);
   return addedAll.filter((p) =>
-    p !== spec && p.startsWith(`${dir}/`) && /(__fixtures__|__tests__|test-support|\.fixture\.ts|\.helper\.ts)/.test(p));
+    p !== spec &&
+    !/\.spec\.ts$/.test(p) &&
+    p.startsWith(`${dir}/`) &&
+    /(__fixtures__|__tests__|test-support|\.fixture\.ts|\.helper\.ts)/.test(p));
 }
 
 function stage(path) {

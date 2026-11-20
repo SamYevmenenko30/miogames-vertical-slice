@@ -246,10 +246,35 @@ const probes = [
     },
   },
   {
+    name: 'red-check/a-sibling-spec-is-never-staged-into-the-base-run',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // The planted pair: `vacuous.spec.ts` passes on its own, and `oracle.spec.ts`
+    // sits beside it in the same __tests__ directory. If the gate staged the
+    // sibling, nothing would change — but if it ever staged it INSTEAD of
+    // measuring each file alone, the green file would go unnoticed. The gate must
+    // still report the green one.
+    expect: /PASSES at the merge-base/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/platform/probe/__tests__/oracle.spec.ts',
+        `import { expect, it } from 'vitest';\n\nit('S1 — oracle', () => { expect(1).toBe(1); });\n`);
+      write('src/platform/probe/__tests__/vacuous.spec.ts',
+        `import { expect, it } from 'vitest';\n\nit('S2 — vacuous', () => { expect(2 + 2).toBe(4); });\n`);
+      commit('test: two specs in one directory\n');
+      return base;
+    },
+  },
+  {
     name: 'red-check/requires-the-tests-phase-to-add-a-test',
     gate: ['node', ['scripts/red-check.mjs', '--require-tests']],
+    // Base == HEAD, so the branch adds nothing: the tests phase must not be able
+    // to finish without a test. (An earlier version of this probe planted
+    // nothing and relied on the branch being empty, which quietly stopped being
+    // true the moment a real ticket added tests.)
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
     expect: /adds no test file/i,
-    plant() { /* nothing: an empty branch must fail --require-tests */ },
+    plant() { return sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim(); },
     skipBaseline: true,
   },
 ];

@@ -1,0 +1,107 @@
+# MIO-001 — review:request
+# base 6c58bcb9ee1f4d53f61e9eea137bf87e3b859752
+# head 0de001d18f3b29817a30a3a0aa31f484205856dc
+
+$ spec-gate
+MIO-001: 19 statements, 2 question(s)
+
+spec-gate MIO-001: PASS
+
+$ red-check
+red-check — base 6c58bcb9, 8 added test file(s)
+
+✓  crash-red      src/platform/audit/__tests__/audit-log.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/clock/clock.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/config/config.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/crypto/crypto.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/db/__tests__/migrations.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/db/__tests__/unit-of-work.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/events/__tests__/outbox.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/platform/http/__tests__/problem-json.integration.spec.ts
+      Cannot find module
+
+8 file(s): 8 crash-red
+   8 of them are crash-red: they prove "cannot pass without the branch",
+   not "asserts the right thing". Prefer assertion-red where you can.
+
+red-check: PASS — every added test file fails without this branch.
+
+$ test-guard
+no pre-existing test file was modified (base 6c58bcb9)
+
+test-guard: PASS
+
+$ arch-check
+identity: declared, not built yet (card MIO-002 in 0-backlog)
+   integration: declared, not built yet (card MIO-003 in 0-backlog)
+   ingestion: declared, not built yet (card MIO-004 in 0-backlog)
+   gamification: declared, not built yet (card MIO-005 in 0-backlog)
+   ledger: declared, not built yet (card MIO-008 in 0-backlog)
+   rewards: declared, not built yet (card MIO-009 in 0-backlog)
+   6 modules declared, 0 on disk, 5 events
+
+arch-check: PASS
+
+$ board:check
+15 cards, 0 in progress, base 6c58bcb9
+⚠  MIO-000: no spec, waived — "This card builds the gate set itself; its correctness criterion is gate-probes, not a behaviour spec. Every card after it is gated on having one."
+
+board:check: PASS (1 warning(s))
+
+$ lint
+> miogames-slice@0.1.0 lint /Users/semenyevmenenko/work/mio-games
+> eslint .
+
+$ typecheck
+> miogames-slice@0.1.0 typecheck /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.json --noEmit
+
+$ tests
+> miogames-slice@0.1.0 test /Users/semenyevmenenko/work/mio-games
+> vitest run
+
+
+ RUN  v5.1.1 /Users/semenyevmenenko/work/mio-games
+
+
+ Test Files  8 passed (8)
+      Tests  49 passed (49)
+   Start at  15:01:54
+   Duration  3.18s (tests 56%, import 42%, transform 2%, worker 1%)
+
+$ build
+> miogames-slice@0.1.0 build /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.build.json
+
+$ gate-probes
+gate-probes — 20 probe(s)
+
+✓  lint/domain-ring-stays-pure
+✓  lint/no-deep-import-across-modules
+✓  lint/application-may-not-reach-into-an-adapter
+✓  lint/a-facade-may-not-re-export-an-adapter
+✓  arch-check/stray-file-at-a-module-root
+✓  lint/config-read-outside-platform-config
+✓  arch-check/undeclared-module
+✓  arch-check/platform-importing-a-module
+✓  arch-check/undeclared-cross-module-import
+✓  arch-check/module-without-isolation-test
+✓  spec-gate/unanswered-open-question
+✓  spec-gate/answer-without-an-owner
+✓  board/column-drift
+✓  board/spec-waiver-without-a-reason
+✓  board/wip-limit-of-one
+✓  board/commit-trailer-names-a-ghost-card
+✓  test-guard/spec-test-edited-without-a-declaration
+✓  red-check/a-new-test-that-is-green-without-the-code
+✓  red-check/a-sibling-spec-is-never-staged-into-the-base-run
+✓  red-check/requires-the-tests-phase-to-add-a-test
+
+gate-probes: PASS — all 20 gates fail on a planted violation, and pass without one.
