@@ -34,6 +34,13 @@ if (only && !targets.length) r.error(`${only}: no card on the board`);
 
 for (const card of targets) {
   const id = card.data.id;
+  // A card may waive its spec with a reason; board:check enforces that the reason
+  // is real. Both gates have to agree about the waiver, or `verify` contradicts
+  // itself — which is how a pipeline teaches people to ignore it.
+  if (card.data.spec === 'none') {
+    r.note(`${id}: spec waived — "${String(card.data.spec_waiver ?? '').slice(0, 80)}"`);
+    continue;
+  }
   const specPath = card.data.spec ?? `docs/specs/${id}.md`;
   const abs = join(ROOT, specPath);
   if (!existsSync(abs)) { r.error(`${id}: no spec at ${specPath}`); continue; }
