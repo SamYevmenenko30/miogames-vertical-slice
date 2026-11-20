@@ -5,11 +5,23 @@
 ```bash
 nvm use                 # Node 22
 pnpm install
+cp .env.example .env    # the scripts load it; compose sets its own and ignores it
 docker compose up -d    # postgres :5440, api :3000, worker :3002, casino mock :3010
 pnpm db:migrate         # migrations are explicit, never applied at boot
 pnpm db:seed            # two tenants: casino-a and casino-b, with API keys printed
 pnpm smoke              # drives the whole Part B flow end to end and prints each step
 ```
+
+Rehearsed from a clean clone of this repository, which is how the `.env` line got here:
+`db:migrate`, `pnpm test` (35 files, 242 tests) and `pnpm smoke` (14 asserted steps) all pass
+with no `.env` at all, because the scripts that only need a database default to the compose URL
+and the smoke run builds its own. `pnpm db:seed` and `pnpm dev` do not: they load the whole
+application configuration, and `PLAYER_TOKEN_SECRET` has no default, on purpose — a signing
+secret that falls back to a built-in value is a production incident waiting for the one
+deployment that forgets to set it. Before this, `.env.example` said "copy to .env" and **nothing
+read the file**; now `node --env-file-if-exists=.env` is on every script that needs it and
+`vitest.config.mts` loads it too, so one file means the same thing to every entry point. Real
+environment variables still win over it.
 
 `docker compose up -d` is the containerised path, and it is checked rather than assumed: the
 build was run from a clean context, and with the stack up, `POST /v1/ingest/casino-a/events`

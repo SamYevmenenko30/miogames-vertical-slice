@@ -34,7 +34,7 @@ The artefacts are all in the repository, not described in it:
 | The board, as folders, moved with `git mv` | [board/](../../board/) — each card carries its phase log and its review findings |
 | The gates | [scripts/](../../scripts/) |
 | Raw gate output | [gate-runs/](gate-runs/) |
-| 13 specs with numbered, testable statements (MIO-001…013; MIO-000 is the pipeline itself and MIO-014 is documentation, so neither has one) | [docs/specs/](../specs/) |
+| 14 specs with numbered, testable statements (MIO-001…013 and MIO-015; MIO-000 is the pipeline itself and MIO-014 is documentation, so neither has one) | [docs/specs/](../specs/) |
 
 `git log` is the primary evidence: every ticket that implements behaviour has a `spec(...)`, a
 `test(...)` and a `feat(...)` commit in that order, each with a `Ticket:` trailer, and
@@ -87,6 +87,8 @@ were *in* the things that read the diff.
 | `current_setting('app.tenant_id', true)` returns the **empty string**, not NULL, once touched on a connection | The suite, on a pooled connection | Policies written against NULL alone refuse everything from the *second* request onwards. It presents as "the first request works and the rest answer 401" |
 | **`pnpm dev` had never worked**: esbuild does not emit decorator metadata, so Nest resolved every controller's first parameter as `undefined` | Running it, during MIO-011 | The demo path was broken while the measured path was green. This is why `pnpm smoke` now runs in `verify` and in CI |
 | A test that would have passed for the wrong reason: advancing the clock past an entitlement's expiry also expires the player token | Reading the failure instead of the assertion | With a looser expectation it would have gone green while proving nothing about entitlement expiry |
+| **`.env.example` told you to copy it to `.env`, and nothing anywhere read `.env`** — no dotenv, no `--env-file`. So `pnpm db:seed` and `pnpm dev` failed from a clean clone with `Invalid configuration: PLAYER_TOKEN_SECRET`, which is the second step of the documented first run | A clean-clone rehearsal: clone the public repository, `pnpm install`, follow the README | The first thing a reviewer does after installing would have failed while every gate was green — because every gate runs in a checkout that already has an environment, and nothing ever started from zero. Exactly the shape of `pnpm dev` above, which is the lesson this repository had already learned once. `pnpm db:migrate`, `pnpm test` (35 files, 242 tests) and `pnpm smoke` (14 asserted steps) all passed from that same clone, which is why nothing had noticed. The fix is `--env-file-if-exists` on every script that needs configuration, the same load in `vitest.config.mts`, and **the documented first run as a CI step** |
+| The fix for that one broke the suite: `process.loadEnvFile` **throws** when the file is absent, and `?.` guards the function being missing, not the file | `pnpm verify`, one minute later | A checkout without a `.env` — the normal case here, CI included — could not load the vitest config at all. The repair of a broken documented path would have broken the measured one, which is the pattern the round-two review found in money code and this is its cheap twin |
 | Twice: an error message that did not match the regex a test greps for — "timed out" against `/timeout/`, "currencies" against `/currency/` | The suite | Cheap, but worth recording twice: when a test greps a message, the message is part of the contract |
 
 ## Where the AI was used, and where it was not

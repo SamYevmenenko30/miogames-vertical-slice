@@ -1,6 +1,21 @@
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
+// `.env` has to mean the same thing here as it does for `pnpm dev` and the scripts,
+// which load it with node's --env-file-if-exists. Vitest has no such flag, so the
+// config does it: without this, DATABASE_URL_TEST in a .env file was silently ignored
+// and the suite went to the default server instead.
+//
+// try/catch, not `?.`: the optional call guards the function being absent on an older
+// Node, while `loadEnvFile` THROWS when the file is missing — and missing is the normal
+// case here (this repository has no committed .env, and CI has none either). Without the
+// catch, every test run in a checkout without a .env fails to load this config.
+try {
+  process.loadEnvFile?.('.env');
+} catch {
+  // no .env — real environment variables and the scripts' own defaults stand
+}
+
 /**
  * Two projects, because they cost different things to run:
  *

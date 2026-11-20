@@ -59,6 +59,15 @@ jobs:
         with: { node-version-file: '.nvmrc', cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
+      # The documented first run, exercised exactly as the README writes it. This
+      # step exists because a clean-clone rehearsal found `pnpm db:seed` failing
+      # on PLAYER_TOKEN_SECRET while every gate was green: the gates all ran in a
+      # checkout that already had an environment. DATABASE_URL from the job env
+      # still wins over the file, which is what makes the copy safe here.
+      - name: the documented first run (cp .env.example .env, then seed)
+        run: |
+          cp .env.example .env
+          pnpm db:seed
       - run: pnpm test
       - name: smoke — all eight Part B steps, both operators
         run: pnpm smoke

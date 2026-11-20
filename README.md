@@ -16,6 +16,7 @@ working method of my own, already running on a live product
 
 ```bash
 nvm use && pnpm install
+cp .env.example .env          # needed by `pnpm dev` and `pnpm db:seed`, not by the line below
 docker compose up -d postgres
 pnpm db:migrate
 pnpm smoke          # all eight Part B steps, both operators, asserted
