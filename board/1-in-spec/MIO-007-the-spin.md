@@ -1,13 +1,13 @@
 ---
 id: MIO-007
 title: "gamification: claim an entitlement exactly once and draw a verifiable outcome"
-column: 0-backlog
+column: 1-in-spec
 type: feature
 module: gamification
 part: "B, C"
 depends_on: [MIO-005, MIO-008]
 spec: docs/specs/MIO-007.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-007 — gamification: claim an entitlement exactly once and draw a verifiable outcome
 
@@ -31,7 +31,7 @@ Step 4 of Part B, the concurrent-spin case of Part C, and the anti-manipulation 
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 11 statements, 2 questions |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
