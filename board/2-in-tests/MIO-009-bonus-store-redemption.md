@@ -1,13 +1,13 @@
 ---
 id: MIO-009
 title: "rewards: the bonus store and an idempotent redemption"
-column: 1-in-spec
+column: 2-in-tests
 type: feature
 module: rewards
 part: "B, C"
 depends_on: [MIO-008]
 spec: docs/specs/MIO-009.md
-gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
 ---
 # MIO-009 — rewards: the bonus store and an idempotent redemption
 
@@ -31,7 +31,7 @@ Step 6 of Part B and the duplicate-redemption case. The debit and the intent mus
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 10 statements, 2 questions |
-| tests-from-spec | — | `red-check` | — |
+| tests-from-spec | 2026-11-20 | `red-check` | PASS |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
 
