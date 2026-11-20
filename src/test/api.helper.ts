@@ -17,7 +17,7 @@ export type TestApi = {
 };
 
 /** The real composition, pointed at a database of this test file's own. */
-export async function startTestApi(label: string): Promise<TestApi> {
+export async function startTestApi(label: string, overrides: Record<string, string> = {}): Promise<TestApi> {
   const db = await createTestDb(label);
   const clock = new FixedClock(new Date('2026-11-20T12:00:00.000Z'));
   const config = loadConfig({
@@ -25,6 +25,7 @@ export async function startTestApi(label: string): Promise<TestApi> {
     DATABASE_URL: db.url,
     PLAYER_TOKEN_SECRET: 'platform-player-token-secret-32ch',
     LOG_LEVEL: 'silent',
+    ...overrides,
   });
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })

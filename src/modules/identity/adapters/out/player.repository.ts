@@ -20,6 +20,15 @@ export class PlayerRepository implements PlayerRepositoryPort {
     return row ? { id: row.playerId, tenantId: currentTenantId() } : null;
   }
 
+  async externalIdOf(playerId: PlayerId): Promise<ExternalPlayerId | null> {
+    const rows = await this.uow.tx
+      .select({ externalPlayerId: playerIdentity.externalPlayerId })
+      .from(playerIdentity)
+      .where(scopedWhere(playerIdentity, eq(playerIdentity.playerId, playerId)))
+      .limit(1);
+    return rows[0]?.externalPlayerId ?? null;
+  }
+
   async findById(playerId: PlayerId): Promise<Player | null> {
     const rows = await this.uow.tx
       .select()

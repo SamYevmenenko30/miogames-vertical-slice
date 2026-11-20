@@ -4,10 +4,11 @@ import { GamificationModule } from './modules/gamification/gamification.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { RewardsModule } from './modules/rewards/rewards.module';
 import { PlatformModule } from './platform/platform.module';
 
 /** The HTTP composition: platform, then the business modules that expose routes. */
 @Module({
-  imports: [PlatformModule, IdentityModule, IntegrationModule, IngestionModule, LedgerModule, GamificationModule],
+  imports: [PlatformModule, IdentityModule, IntegrationModule, IngestionModule, LedgerModule, GamificationModule, RewardsModule],
 })
 export class AppModule {}
