@@ -1,7 +1,7 @@
 ---
 id: MIO-016
 title: 'Database timeouts: no statement, lock or idle transaction runs unbounded'
-column: 3-in-progress
+column: 4-in-review
 type: fix
 module: platform
 part: C

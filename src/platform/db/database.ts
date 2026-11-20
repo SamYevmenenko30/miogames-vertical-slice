@@ -20,13 +20,53 @@ export const DATABASE = Symbol('Database');
 /** The owner connection: migrations and the single cross-tenant job. */
 export const OWNER_DATABASE = Symbol('OwnerDatabase');
 
-export function createDatabase(options: { url: string; max?: number }): Database {
+/**
+ * The limits that keep database work bounded (MIO-016).
+ *
+ * They are sent as startup parameters, so the server enforces them on every
+ * statement of every connection in the pool — not as a wrapper a call site can
+ * forget, and not as an application-side timer that lets the statement keep
+ * running after we stopped waiting for it.
+ *
+ * Optional, because the migrator and the test helpers open connections for which
+ * these limits would be wrong; what is NOT optional is that the application's
+ * pools get them, which `platform.module.ts` does from configuration.
+ */
+export type DatabaseTimeouts = {
+  /** A statement that runs past this is cancelled (SQLSTATE 57014). */
+  statementMs: number;
+  /** A lock wait that runs past this fails rather than queues (55P03). */
+  lockMs: number;
+  /** A transaction idle between statements past this is terminated (25P03). */
+  idleInTransactionMs: number;
+  /** How long the driver waits for a connection before failing, in seconds. */
+  connectSeconds: number;
+};
+
+export function createDatabase(options: {
+  url: string;
+  max?: number;
+  timeouts?: DatabaseTimeouts;
+}): Database {
+  const { timeouts } = options;
   const sql = postgres(options.url, {
     max: options.max ?? 10,
     onnotice: () => {},
     // A money-shaped system should not silently coerce; keep numerics as strings
     // and parse them where the type is known.
     transform: { undefined: null },
+    ...(timeouts ? { connect_timeout: timeouts.connectSeconds } : {}),
+    // Startup parameters. Postgres reads a bare integer for each of these as
+    // milliseconds, and `pg_settings.setting` reports it back in the same unit —
+    // which is what the spec asserts against, because `current_setting` formats
+    // it ('15s') and a formatted value is not a thing to assert on.
+    connection: timeouts
+      ? {
+          statement_timeout: timeouts.statementMs,
+          lock_timeout: timeouts.lockMs,
+          idle_in_transaction_session_timeout: timeouts.idleInTransactionMs,
+        }
+      : {},
   });
   const db = drizzle(sql);
   return {
