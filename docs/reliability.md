@@ -16,6 +16,20 @@ Test names are greppable: each begins with the spec statement it proves.
 | **Tenant isolation** | Three layers: the tenant in context with no un-scoped accessor; Postgres row-level security as the application role; `404` never `403` | One isolation test per module, plus `row-level-security.integration.spec.ts` S1–S7. S7 enumerates every `tenant_id` table in **every** non-system schema and names the single documented exception (`infra.outbox`), so a new table — or a new module's whole schema — without a policy fails. It used to enumerate five hardcoded schemas, which a new schema simply sat outside |
 | **Invalid or unauthorized events** | HMAC over `${timestamp}.${rawBody}` with a tolerance window, verified inside `identity` so the secret never leaves it; wrong secret, unknown key and stale timestamp are indistinguishable | `ingest.integration.spec.ts` S4 — all three answer the same 401 with the same problem type, and no envelope is stored |
 
+## Bounded work: nothing waits forever
+
+Every mechanism in the table above assumes the statement holding a lock eventually ends. Both
+application pools therefore open with `statement_timeout` (15 s), `lock_timeout` (5 s),
+`idle_in_transaction_session_timeout` (30 s) and `connect_timeout` (10 s), sent as startup
+parameters so the server enforces them on every statement rather than a wrapper a call site can
+forget (MIO-016; `timeouts.integration.spec.ts` asserts each one from `pg_settings` and then from a
+real cancellation, a real lock refusal and a real terminated transaction). Migrations are exempt on
+purpose — an index build is supposed to take minutes — and S5 of that spec pins the exemption,
+because "exempt on purpose" and "forgotten" look identical in a diff.
+
+What remains is the pool's acquire queue: it is unbounded and untimed, so a saturated pool makes a
+caller wait rather than fail (TD-0013).
+
 ## Preventing manipulation of the odds, and unauthorized spins
 
 The assignment asks how a player is prevented from influencing reward probabilities or spinning

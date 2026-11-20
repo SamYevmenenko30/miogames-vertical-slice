@@ -13,6 +13,11 @@ export const MIGRATIONS_DIR = join(__dirname, '..', '..', '..', 'db', 'migration
  * a failure leaves neither the change nor the claim that it was applied.
  */
 export async function applyMigrations(url: string, dir: string = MIGRATIONS_DIR): Promise<string[]> {
+  // No statement, lock or idle-in-transaction limit here, deliberately: an index
+  // build on a large table is supposed to take minutes, and a cancelled migration
+  // is worse than a slow one. The application's pools carry those limits instead
+  // (MIO-016 S5 pins this, because "exempt on purpose" and "forgotten" look the
+  // same in a diff).
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   const applied: string[] = [];
   try {

@@ -1,0 +1,13 @@
+
+> miogames-slice@0.1.0 red-check /Users/semenyevmenenko/work/mio-games
+> node scripts/red-check.mjs
+
+
+red-check — base db56f953, 2 added test file(s)
+
+✓  assertion-red  src/platform/config/db-timeouts.spec.ts
+✓  assertion-red  src/platform/db/__tests__/timeouts.integration.spec.ts
+
+2 file(s): 2 assertion-red
+
+red-check: PASS — every added test file fails without this branch.
