@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { APP_CONFIG, type AppConfig } from './platform/config/config';
 import { ProblemJsonFilter } from './platform/http/problem-json.filter';
 import { rawBodyJson } from './platform/http/raw-body';
+import { requestContext } from './platform/observability/request-context.middleware';
 import { LOGGER, type Logger } from './platform/observability/logger';
 
 /** Composition root #1: the HTTP API. Migrations are NOT applied here. */
@@ -12,6 +13,7 @@ async function bootstrap(): Promise<void> {
   const config = app.get<AppConfig>(APP_CONFIG);
   const logger = app.get<Logger>(LOGGER);
 
+  app.use(requestContext());
   app.use(rawBodyJson());
   app.useGlobalFilters(new ProblemJsonFilter(logger));
   app.enableShutdownHooks();

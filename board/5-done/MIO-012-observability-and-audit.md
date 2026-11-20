@@ -1,13 +1,13 @@
 ---
 id: MIO-012
 title: "Observability and auditability: request context, structured logs, append-only audit"
-column: 2-in-tests
+column: 5-done
 type: feature
 module: platform
 part: "A"
 depends_on: [MIO-010]
 spec: docs/specs/MIO-012.md
-gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pass, review: pass }
 ---
 # MIO-012 — Observability and auditability: request context, structured logs, append-only audit
 
@@ -32,9 +32,21 @@ In a money-shaped system "what happened to this redemption" has to be answerable
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 6 statements, 2 questions |
 | tests-from-spec | 2026-11-20 | `red-check` | PASS |
-| implement-to-green | — | `verify` | — |
-| review | — | `review:request` | — |
+| implement-to-green | 2026-11-20 | `verify` | PASS — 221 tests |
+| review | 2026-11-20 | `review:request` | PASS |
 
 ## Review findings
 
-_Filled in during review. A finding that is not fixed becomes a line in `docs/tech-debt.md`._
+No defects. One design point a reviewer should check rather than take on trust:
+the audit reader lives in `platform/audit`, with the table it reads, and
+authenticates through a **port** that the composition root fills with the
+identity facade. Platform may not import a business module, and the easy way out
+— importing `IdentityFacade` here — would have been invisible in review and
+caught by the linter. It was worth the eight lines: `platform` stays free of
+business knowledge, and the one place the two meet is the composition root,
+where a reader expects to find wiring.
+
+The metric list in `docs/observability.md` is deliberately a list and not a
+dashboard. `ledger_balance_drift` is the one to read first: it can only be
+non-zero through a bug, which is exactly why it has to be measured rather than
+assumed (TD-0001).

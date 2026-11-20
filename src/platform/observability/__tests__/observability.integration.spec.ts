@@ -77,19 +77,18 @@ describe('platform/observability — health', () => {
   });
 
   it('S3 — with the database unreachable it answers 503 and does not claim ok', async () => {
-    const broken = await startTestApi('observability-broken');
-    await broken.db.sql`select 1`;
-    // Point the pool at a database that is not there, as an outage would.
-    await broken.db.sql.end({ timeout: 1 });
-    await broken.app.get<{ close: () => Promise<void> }>(
-      (await import('../../db/database')).DATABASE,
-    ).close();
-
-    const res = await request(broken.app.getHttpServer()).get('/health');
-    expect(res.status).toBe(503);
-    expect(res.body.ok).toBe(false);
-
-    await broken.app.close();
-    await broken.db.drop().catch(() => undefined);
+    // An API pointed at a database that is not there — the shape of an outage,
+    // without having to break a working pool from the outside.
+    const broken = await startTestApi('observability-broken', {
+      DATABASE_URL: 'postgres://mio_app:mio_app@localhost:5440/mio_absent_database',
+    });
+    try {
+      const res = await request(broken.app.getHttpServer()).get('/health');
+      expect(res.status).toBe(503);
+      expect(res.body.ok).toBe(false);
+      expect(res.body.schemaVersion).toBeNull();
+    } finally {
+      await broken.close();
+    }
   });
 });
