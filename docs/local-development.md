@@ -41,6 +41,11 @@ pnpm test:unit          # no I/O, runs anywhere
 
 ## Why migrations never run at boot
 
+**`0011` does not exist, and that is not a missing file.** The number was skipped while the review
+rounds were landing and never reused. The runner records what it applied by filename, so a gap in
+the sequence is inert — whereas renumbering a migration that has already run in someone's database
+is how a cosmetic gap becomes a real one.
+
 Two replicas starting at the same time race each other through the same migration. So the deploy
 applies migrations as its own step, and `pnpm db:migrate` is the only thing that ever applies one.
 
