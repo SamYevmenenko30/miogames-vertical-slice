@@ -15,7 +15,10 @@ const scan = (): string[] => {
   try {
     const out = execFileSync(
       'git',
-      ['grep', '-l', '--untracked', '-E', 'casino-(a|b)\\b', '--', 'src', 'db'],
+      // No `\b`: git grep's -E engine does not implement it, and the pattern then
+      // matches nothing at all — which is how BOTH assertions below passed while
+      // proving nothing. The presence assertion is what caught that.
+      ['grep', '-l', '--untracked', '-E', 'casino-(a|b)', '--', 'src', 'db'],
       { encoding: 'utf8', cwd: process.cwd() },
     );
     return out.split('\n').filter(Boolean);
@@ -26,6 +29,14 @@ const scan = (): string[] => {
 };
 
 describe('integration — operator names do not leak', () => {
+  it('S8 — the invariant has a subject: the integration module does name both operators', () => {
+    // Without this, the whole file is vacuous whenever nothing names an operator
+    // at all — which is also how it looked at the merge-base, and red-check said
+    // so by refusing a green verdict.
+    const owners = scan().filter((file) => file.startsWith('src/modules/integration/'));
+    expect(owners.length).toBeGreaterThan(0);
+  });
+
   it('S8 — only the integration module, the mocks and tests name an operator', () => {
     const offenders = scan().filter(
       (file) =>

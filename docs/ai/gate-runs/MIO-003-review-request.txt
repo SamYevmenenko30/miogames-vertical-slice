@@ -1,0 +1,163 @@
+# MIO-003 — review:request
+# base 6f312be4316e3fb4a5cd5e34a1b3be70ed54b3ce
+# head b3612217d2333095095ac0b476f929e51b5b7479
+
+$ spec-gate
+MIO-003: 9 statements, 2 question(s)
+
+spec-gate MIO-003: PASS
+
+$ red-check
+red-check — base 6f312be4, 5 added test file(s)
+
+✓  crash-red      src/mocks/casino-platform/__tests__/casino-mock.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/integration/__tests__/dialects.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/integration/__tests__/integration-isolation.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/integration/__tests__/money.spec.ts
+      Cannot find module
+✗  GREEN          src/modules/integration/__tests__/no-operator-leak.spec.ts
+
+5 file(s): 4 crash-red, 1 GREEN
+   4 of them are crash-red: they prove "cannot pass without the branch",
+   not "asserts the right thing". Prefer assertion-red where you can.
+✗  src/modules/integration/__tests__/no-operator-leak.spec.ts PASSES at the merge-base. It does not need the implementation, so it guards nothing.
+      Make it assert the new behaviour, or delete it. If the base genuinely cannot see the
+      change, declare it: red-check-exempt: src/modules/integration/__tests__/no-operator-leak.spec.ts — <why>
+
+red-check: FAIL — 1 problem(s)
+
+$ test-guard
+⚠  src/modules/integration/__tests__/no-operator-leak.spec.ts: modified under spec-conflict — "the scan ran `git grep` without `--untracked`, so during the implementation phase it searched the index and would have passed vacuously exactly when a leak was being introduced; it also treated grep's "no matches" exit code as a crash". The ticket goes back to the spec phase.
+
+test-guard: PASS (1 warning(s))
+
+$ arch-check
+ingestion: declared, not built yet (card MIO-004 in 0-backlog)
+   gamification: declared, not built yet (card MIO-005 in 0-backlog)
+   ledger: declared, not built yet (card MIO-008 in 0-backlog)
+   rewards: declared, not built yet (card MIO-009 in 0-backlog)
+   event gamification.spin.completed: declared, no schema yet (card MIO-005)
+   event rewards.redemption.requested: declared, no schema yet (card MIO-009)
+   event rewards.redemption.issued: declared, no schema yet (card MIO-009)
+   event rewards.redemption.failed: declared, no schema yet (card MIO-009)
+   6 modules declared, 2 on disk, 5 events
+
+arch-check: PASS
+
+$ board:check
+15 cards, 0 in progress, base 6f312be4
+⚠  MIO-000: no spec, waived — "This card builds the gate set itself; its correctness criterion is gate-probes, not a behaviour spec. Every card after it is gated on having one."
+
+board:check: PASS (1 warning(s))
+
+$ lint
+> miogames-slice@0.1.0 lint /Users/semenyevmenenko/work/mio-games
+> eslint .
+
+$ typecheck
+> miogames-slice@0.1.0 typecheck /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.json --noEmit
+
+$ tests
+> miogames-slice@0.1.0 test /Users/semenyevmenenko/work/mio-games
+> vitest run
+
+
+ RUN  v5.1.1 /Users/semenyevmenenko/work/mio-games
+
+
+ Test Files  16 passed (16)
+      Tests  99 passed (99)
+   Start at  15:20:40
+   Duration  3.33s (tests 52%, import 45%, transform 2%, worker 1%)
+
+$ build
+> miogames-slice@0.1.0 build /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.build.json
+
+$ gate-probes
+gate-probes — 21 probe(s)
+
+✓  lint/domain-ring-stays-pure
+✓  lint/no-deep-import-across-modules
+✓  lint/application-may-not-reach-into-an-adapter
+✓  lint/a-facade-may-not-re-export-an-adapter
+✓  arch-check/stray-file-at-a-module-root
+✓  lint/config-read-outside-platform-config
+✓  arch-check/undeclared-module
+✓  arch-check/platform-importing-a-module
+✓  arch-check/undeclared-cross-module-import
+✗  arch-check/module-without-isolation-test  (wrong reason)
+✓  spec-gate/unanswered-open-question
+✓  spec-gate/answer-without-an-owner
+✓  board/column-drift
+✓  board/spec-waiver-without-a-reason
+✓  board/wip-limit-of-one
+✓  board/commit-trailer-names-a-ghost-card
+✓  test-guard/spec-test-edited-without-a-declaration
+✓  test-guard/a-test-added-and-then-bent-on-the-same-branch
+✗  red-check/a-new-test-that-is-green-without-the-code  (baseline)
+✗  red-check/a-sibling-spec-is-never-staged-into-the-base-run  (baseline)
+✓  red-check/requires-the-tests-phase-to-add-a-test
+
+✗  arch-check/module-without-isolation-test: the gate failed, but not for the expected reason (wanted /no tenant-isolation integration test/i).
+      ingestion: declared, not built yet (card MIO-004 in 0-backlog)
+         gamification: declared, not built yet (card MIO-005 in 0-backlog)
+         rewards: declared, not built yet (card MIO-009 in 0-backlog)
+         event gamification.spin.completed: declared, no schema yet (card MIO-005)
+         event rewards.redemption.requested: declared, no schema yet (card MIO-009)
+         event rewards.redemption.issued: declared, no schema yet (card MIO-009)
+         event rewards.redemption.failed: declared, no schema yet (card MIO-009)
+         6 modules declared, 3 on disk, 5 events
+      ✗  src/modules/ledger: no tenant-isolation test (*isolation*.spec.ts) — ADR-0006 requires one per module
+      
+      arch-check: FAIL — 1 problem(s)
+
+✗  red-check/a-new-test-that-is-green-without-the-code: BASELINE failed — the gate does not pass on a clean tree, so this probe proves nothing.
+      red-check — base 6f312be4, 5 added test file(s)
+      
+      ✓  crash-red      src/mocks/casino-platform/__tests__/casino-mock.integration.spec.ts
+            Cannot find module
+      ✓  crash-red      src/modules/integration/__tests__/dialects.spec.ts
+            Cannot find module
+      ✓  crash-red      src/modules/integration/__tests__/integration-isolation.spec.ts
+            Cannot find module
+      ✓  crash-red      src/modules/integration/__tests__/money.spec.ts
+            Cannot find module
+      ✗  GREEN          src/modules/integration/__tests__/no-operator-leak.spec.ts
+      
+      5 file(s): 4 crash-red, 1 GREEN
+         4 of them are crash-red: they prove "cannot pass without the branch",
+         not "asserts the right thing". Prefer assertion-red where you can.
+      ✗  src/modules/integration/__tests__/no-operator-leak.spec.ts PASSES at the merge-base. It does not need the implementation, so it guards nothing.
+            Make it assert the new behaviour, or delete it. If the base genuinely cannot see the
+            change, declare it: red-check-exempt: src/modules/integration/__tests__/no-operator-leak.spec.ts — <why>
+      
+      red-check: FAIL — 1 problem(s)
+
+✗  red-check/a-sibling-spec-is-never-staged-into-the-base-run: BASELINE failed — the gate does not pass on a clean tree, so this probe proves nothing.
+      red-check — base 6f312be4, 5 added test file(s)
+      
+      ✓  crash-red      src/mocks/casino-platform/__tests__/casino-mock.integration.spec.ts
+            Cannot find module
+      ✓  crash-red      src/modules/integration/__tests__/dialects.spec.ts
+            Cannot find module
+      ✓  crash-red      src/modules/integration/__tests__/integration-isolation.spec.ts
+            Cannot find module
+      ✓  crash-red      src/modules/integration/__tests__/money.spec.ts
+            Cannot find module
+      ✗  GREEN          src/modules/integration/__tests__/no-operator-leak.spec.ts
+      
+      5 file(s): 4 crash-red, 1 GREEN
+         4 of them are crash-red: they prove "cannot pass without the branch",
+         not "asserts the right thing". Prefer assertion-red where you can.
+      ✗  src/modules/integration/__tests__/no-operator-leak.spec.ts PASSES at the merge-base. It does not need the implementation, so it guards nothing.
+            Make it assert the new behaviour, or delete it. If the base genuinely cannot see the
+            change, declare it: red-check-exempt: src/modules/integration/__tests__/no-operator-leak.spec.ts — <why>
+      
+      red-check: FAIL — 1 problem(s)
+
+gate-probes: FAIL — 3 of 21 probe(s)
