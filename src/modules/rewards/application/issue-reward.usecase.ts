@@ -21,26 +21,25 @@ export type IssuanceOptions = {
 /**
  * Ask the operator to issue a reward, and deal with every way that can go wrong.
  *
- * The external call is MEANT to sit outside a transaction — an HTTP call in a
- * transaction holds a database connection for as long as someone else's timeout —
- * and on the retry path it does. See the second caveat below for where it does
- * not, which is measured, not assumed.
- * So the shape is claim (transaction) → call (no transaction) → record
- * (transaction), and the claim is a conditional UPDATE so two workers cannot both
- * start issuing the same reward.
+ * The external call is never inside a transaction: an HTTP call in a transaction
+ * holds a database connection for as long as someone else's timeout. So the shape
+ * is claim (transaction) → call (no transaction) → record (transaction), and the
+ * claim is a conditional UPDATE so two workers cannot both start issuing the same
+ * reward.
  *
- * Two caveats, both measured rather than assumed:
+ * `execute` therefore has exactly ONE caller: the issuance sweep, which invokes
+ * it with nothing open. The outbox consumer calls `scheduleFirstAttempt` instead
+ * and only marks the redemption due. That split was bought with a defect — when
+ * the consumer called `execute` directly, `UnitOfWork`'s re-entrancy meant every
+ * `withTransaction` below JOINED the consumer's transaction, so the sentence
+ * above was false on every first attempt and a pooled connection was held across
+ * the operator's timeout. One way in; one place that talks to an operator.
  *
- *   - The claim takes a LEASE. If this process dies between the operator call and
- *     recording the outcome, the sweep re-claims the redemption once the lease
- *     expires. Re-attempting is safe because the intent below carries
- *     `redemption:<id>` as its idempotency key, so an operator that already
- *     granted the reward returns the same reference instead of granting a second.
- *   - "call (no transaction)" holds on the RETRY path, where the sweep invokes
- *     this with nothing open. On the first attempt the outbox consumer is already
- *     inside a transaction and `UnitOfWork` is re-entrant, so the calls below
- *     JOIN it and the operator call does run with a transaction open. That is
- *     TD-0011, not a thing this comment should claim is otherwise.
+ * The claim also takes a LEASE. If this process dies between the operator call
+ * and recording the outcome, the sweep re-claims the redemption once the lease
+ * expires. Re-attempting is safe because the intent below carries
+ * `redemption:<id>` as its idempotency key, so an operator that already granted
+ * the reward returns the same reference instead of granting a second.
  */
 export class IssueRewardUseCase {
   constructor(
@@ -54,6 +53,19 @@ export class IssueRewardUseCase {
     private readonly logger: Logger,
     private readonly options: IssuanceOptions,
   ) {}
+
+  /**
+   * Make a freshly requested redemption due, so the sweep issues it.
+   *
+   * One short write, so it joins the consumer's transaction harmlessly — and that
+   * is the point: the processed-event claim and the schedule commit together, and
+   * the operator call happens later, on the sweep, with nothing open.
+   */
+  async scheduleFirstAttempt(redemptionId: string): Promise<void> {
+    await this.uow.withTransaction(async () =>
+      this.redemptions.markDueForIssuance(redemptionId, this.clock.now()),
+    );
+  }
 
   async execute(redemptionId: string): Promise<void> {
     const claimed = await this.uow.withTransaction(async () =>

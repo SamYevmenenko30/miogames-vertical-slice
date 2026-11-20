@@ -15,7 +15,11 @@ const player = randomUUID();
 
 beforeAll(async () => {
   testDb = await createTestDb('ledger-isolation');
-  database = createDatabase({ url: testDb.url });
+  // The APPLICATION role, not the owner: row-level security does not apply to a
+  // table's owner, so an isolation test on the owner connection proves only the
+  // application-level scoping and silently says nothing about the database layer
+  // it is named for. This file is the one that must see all three.
+  database = createDatabase({ url: testDb.appUrl });
   const uow = new UnitOfWork(database);
   ledger = new LedgerFacade(uow, new LedgerRepository(uow), new FixedClock(new Date('2026-11-20T12:00:00.000Z')));
   await withTenant('tenant-a', async () =>

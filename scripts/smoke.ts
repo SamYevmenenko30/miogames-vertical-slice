@@ -17,12 +17,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { createCasinoMock } from '../src/mocks/casino-platform/app';
-import { DepositObservedConsumer } from '../src/modules/gamification/gamification.module';
+import { GAMIFICATION_EVENT_HANDLERS, type GamificationEventHandlers } from '../src/modules/gamification';
 import { WheelConfigService } from '../src/modules/gamification';
 import { IdentityFacade } from '../src/modules/identity';
 import { LedgerFacade } from '../src/modules/ledger';
-import { IssuanceWorker, RewardsFacade } from '../src/modules/rewards';
-import { IssueRedemptionConsumer } from '../src/modules/rewards/rewards.module';
+import { IssuanceWorker, RewardsFacade, REWARDS_EVENT_HANDLERS, type RewardsEventHandlers } from '../src/modules/rewards';
 import { CLOCK, type Clock } from '../src/platform/clock/clock';
 import { DATABASE, type Database } from '../src/platform/db/database';
 import { withTenant } from '../src/platform/db/tenant-context';
@@ -124,7 +123,10 @@ async function main(): Promise<void> {
   const relay = new OutboxRelay({
     uow: app.get(UnitOfWork),
     database: app.get<Database>(DATABASE),
-    handlers: [app.get(DepositObservedConsumer), app.get(IssueRedemptionConsumer)],
+    handlers: [
+      ...app.get<GamificationEventHandlers>(GAMIFICATION_EVENT_HANDLERS),
+      ...app.get<RewardsEventHandlers>(REWARDS_EVENT_HANDLERS),
+    ],
     clock,
     logger: silentLogger,
     batchSize: 50,

@@ -9,6 +9,7 @@ import { LedgerFacade } from '../ledger';
 import { LedgerModule } from '../ledger/ledger.module';
 import { AdminWheelsController } from './adapters/in/admin-wheels.controller';
 import { DepositObservedConsumer } from './adapters/in/deposit-observed.consumer';
+import { GAMIFICATION_EVENT_HANDLERS, type GamificationEventHandlers } from './application/ports';
 import { SpinController } from './adapters/in/spin.controller';
 import { EntitlementRepository } from './adapters/out/entitlement.repository';
 import { SpinRepository } from './adapters/out/spin.repository';
@@ -70,9 +71,13 @@ import { WheelConfigService } from './application/wheel-config.service';
       inject: [UnitOfWork, GrantEntitlementsUseCase],
       useFactory: (uow: UnitOfWork, grant: GrantEntitlementsUseCase) => new DepositObservedConsumer(uow, grant),
     },
+    {
+      // The handlers as a VALUE, so a composition root never names the adapter.
+      provide: GAMIFICATION_EVENT_HANDLERS,
+      inject: [DepositObservedConsumer],
+      useFactory: (deposits: DepositObservedConsumer): GamificationEventHandlers => [deposits],
+    },
   ],
-  exports: [WheelConfigService, DepositObservedConsumer, SpinUseCase],
+  exports: [WheelConfigService, SpinUseCase, GAMIFICATION_EVENT_HANDLERS],
 })
 export class GamificationModule {}
-
-export { DepositObservedConsumer } from './adapters/in/deposit-observed.consumer';

@@ -1,9 +1,8 @@
 import 'reflect-metadata';
 import { createServer } from 'node:http';
 import { NestFactory } from '@nestjs/core';
-import { DepositObservedConsumer } from './modules/gamification/gamification.module';
-import { IssuanceWorker } from './modules/rewards';
-import { IssueRedemptionConsumer } from './modules/rewards/rewards.module';
+import { GAMIFICATION_EVENT_HANDLERS, type GamificationEventHandlers } from './modules/gamification';
+import { IssuanceWorker, REWARDS_EVENT_HANDLERS, type RewardsEventHandlers } from './modules/rewards';
 import { CLOCK, type Clock } from './platform/clock/clock';
 import { APP_CONFIG, type AppConfig } from './platform/config/config';
 import { DATABASE, type Database } from './platform/db/database';
@@ -29,7 +28,12 @@ async function bootstrap(): Promise<void> {
   const relay = new OutboxRelay({
     uow: app.get(UnitOfWork),
     database: app.get<Database>(DATABASE),
-    handlers: [app.get(DepositObservedConsumer), app.get(IssueRedemptionConsumer)],
+    // Each module hands over its handlers as a value; this root never names an
+    // inbound adapter, so a module's consumers stay its own business.
+    handlers: [
+      ...app.get<GamificationEventHandlers>(GAMIFICATION_EVENT_HANDLERS),
+      ...app.get<RewardsEventHandlers>(REWARDS_EVENT_HANDLERS),
+    ],
     clock,
     logger,
     batchSize: config.outboxBatchSize,

@@ -6,11 +6,13 @@ issue the reward, track the outcome, refund when issuance finally fails.
 ## Invariants this module enforces
 
 - The debit, the redemption row and the outbox event are **one** transaction, and the external
-  call is not part of it: redeeming never calls an operator. Issuance is the other half, and there
-  the rule holds on the RETRY path only — on the first attempt the outbox consumer already has a
-  transaction open and `UnitOfWork` is re-entrant, so the operator call runs inside it. That is a
-  real cost (a pooled connection held for up to `ISSUANCE_TIMEOUT_MS`) and it is TD-0011, not an
-  invariant this module enforces.
+  call is never part of it. Redeeming does not call an operator, and neither does the outbox
+  consumer: it marks the redemption due and stops. `IssueRewardUseCase.execute` — the only thing
+  that talks to an operator — has exactly one caller, the sweep, which invokes it with nothing
+  open. That split exists because `UnitOfWork` is re-entrant: when the consumer issued inline,
+  every `withTransaction` inside the use case joined the consumer's transaction and a pooled
+  connection was held for the length of the operator's timeout. S13 asserts it, by observing
+  `inTransaction()` at the moment of the call.
 - `UNIQUE (tenant_id, player_id, idempotency_key)`. The key is scoped to the player as well as
   the tenant, because one player's retry must never return another player's receipt.
 - A redemption copies the item's price and reward payload at creation. Removing the item does not

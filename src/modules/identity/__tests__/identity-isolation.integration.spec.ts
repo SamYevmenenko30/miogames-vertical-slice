@@ -17,6 +17,13 @@ let playerInA: string;
 
 beforeAll(async () => {
   testDb = await createTestDb('identity-isolation');
+  // arch-check: owner-role-isolation — the last case here authenticates key-a
+  // while tenant-b is the ambient tenant, and asserts the key resolves its OWN
+  // tenant. Under row-level security that lookup returns nothing instead (the
+  // tenant_api_key policy restricts to the ambient tenant), so the application
+  // guarantee — that `authenticate` never reads the ambient tenant — stops being
+  // observable: a version that DID read it would also return null. The database
+  // half of identity's isolation is covered by platform/db/row-level-security S9.
   database = createDatabase({ url: testDb.url });
   uow = new UnitOfWork(database);
   const clock = new FixedClock(new Date('2026-11-20T12:00:00.000Z'));

@@ -39,6 +39,10 @@ const write = (rel, text) => {
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, text);
 };
+const append = (rel, text) => {
+  const p = join(WT, rel);
+  writeFileSync(p, readFileSync(p, 'utf8') + text);
+};
 const run = (cmd, args) => trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0' }, timeout: 300_000 });
 const commit = (msg) => {
   sh('git', ['-C', WT, 'add', '-A'], { stdio: 'ignore' });
@@ -178,6 +182,54 @@ const probes = [
     plant() {
       scaffoldModule('ledger');
       rmSync(join(WT, 'src/modules/ledger/__tests__'), { recursive: true, force: true });
+    },
+  },
+  {
+    name: 'arch-check/a-module-may-not-re-export-an-adapter-from-its-wiring',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    // The boundary lint catches this on index.ts, where it is a dependency FROM
+    // the facade. It cannot catch it on <name>.module.ts, which legitimately
+    // imports its own adapters to wire them and where `export … from` looks
+    // identical to `import` — so the same leak was available through the wiring
+    // file, and both modules were using it to hand a consumer to a composition
+    // root.
+    expect: /re-exports an adapter/i,
+    plant() {
+      append('src/modules/ledger/ledger.module.ts',
+        "\nexport { LedgerRepository } from './adapters/out/ledger.repository';\n");
+    },
+  },
+  {
+    name: 'arch-check/an-isolation-test-must-run-as-the-application-role',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    // Row-level security does not apply to a table's owner, so an isolation test
+    // on the owner connection proves the application-level scoping and says
+    // nothing about the database layer it is named for — while reading as though
+    // it covered both.
+    expect: /must connect as the APPLICATION role/i,
+    plant() {
+      write('src/modules/ledger/__tests__/ledger-isolation.integration.spec.ts',
+        `import { beforeAll, describe, expect, it } from 'vitest';\n` +
+        `import { createDatabase } from '../../../platform/db/database';\n` +
+        `import { createTestDb } from '../../../test/db.helper';\n\n` +
+        `beforeAll(async () => {\n` +
+        `  const testDb = await createTestDb('probe');\n` +
+        `  createDatabase({ url: testDb.url });\n` +
+        `});\n\n` +
+        `describe('probe', () => {\n  it('S1 — probe', () => { expect(1).toBe(1); });\n});\n`);
+    },
+  },
+  {
+    name: 'arch-check/startTestApi-must-still-point-at-the-application-role',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    // The isolation-role rule lets `startTestApi` stand in for an explicit
+    // application-role connection. If the helper ever stops doing that, a dozen
+    // suites stop exercising row-level security at once and every one of them
+    // still looks correct, so the stand-in is checked rather than trusted.
+    expect: /no longer points DATABASE_URL at db\.appUrl/i,
+    plant() {
+      const path = 'src/test/api.helper.ts';
+      write(path, readFileSync(join(WT, path), 'utf8').replace('DATABASE_URL: db.appUrl', 'DATABASE_URL: db.url'));
     },
   },
   {

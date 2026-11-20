@@ -112,8 +112,51 @@ for (const [name, decl] of declared) {
   // A module with no tenant-owned rows still has an isolation property — it just
   // is not about a WHERE clause — so the test may be a unit test. What is not
   // negotiable is that the module HAS one.
-  if (!files.some((f) => /isolation.*\.spec\.ts$/.test(f))) {
+  const isolationTests = files.filter((f) => /isolation.*\.spec\.ts$/.test(f));
+  if (!isolationTests.length) {
     r.error(`src/modules/${name}: no tenant-isolation test (*isolation*.spec.ts) — ADR-0006 requires one per module`);
+  }
+
+  // Which ROLE the isolation test connects as decides what it can observe.
+  // Row-level security does not apply to a table's owner, so an isolation test on
+  // the owner connection proves the application-level scoping and says nothing
+  // about the database layer it is named for — silently, while reading as though
+  // it covered both. Either connect as the application role, or say why not.
+  for (const test of isolationTests.filter((f) => f.endsWith('.integration.spec.ts'))) {
+    const text = readFileSync(join(ROOT, test), 'utf8');
+    const waiver = /arch-check:\s*owner-role-isolation\s*(?:—|--)\s*(.{15,})/.exec(text);
+    // `startTestApi` composes the real application against testDb.appUrl, so a
+    // suite that uses it is already on the application role. That trust is
+    // checked once, below, rather than assumed here.
+    if (/testDb\.appUrl|startTestApi/.test(text)) continue;
+    if (waiver) {
+      r.warn(`${test}: runs as the OWNER, so row-level security is not in force — "${waiver[1].trim().slice(0, 90)}"`);
+      continue;
+    }
+    r.error(
+      `${test}: an isolation integration test must connect as the APPLICATION role (createDatabase({ url: testDb.appUrl })),\n` +
+        '      or declare why it cannot, in the file:\n' +
+        '      // arch-check: owner-role-isolation — <why this case needs RLS off to be observable>',
+    );
+  }
+
+  // The module's PUBLIC files may not re-export an adapter. The boundary lint
+  // enforces this for index.ts, where it is a dependency from the facade; it
+  // cannot for <name>.module.ts, which legitimately imports its own adapters to
+  // wire them, and `export … from` is indistinguishable from `import` to the
+  // plugin. So the same leak was available through the wiring file, and both
+  // modules were using it to hand their consumers to a composition root.
+  for (const publicFile of ['index.ts', `${name}.module.ts`]) {
+    const path = join(dir, publicFile);
+    if (!existsSync(path)) continue;
+    const leak = /^export\s[^;]*\sfrom\s+['"][^'"]*adapters\//m.exec(readFileSync(path, 'utf8'));
+    if (leak) {
+      r.error(
+        `src/modules/${name}/${publicFile}: re-exports an adapter (\`${leak[0].trim().slice(0, 70)}\`).\n` +
+          "      A module's public surface is its facade and its wiring; neither may hand out an adapter class.\n" +
+          '      Publish what the caller needs as a value instead — see GAMIFICATION_EVENT_HANDLERS.',
+      );
+    }
   }
 
   const declaredDeps = new Set(decl.dependsOn ?? []);
@@ -126,6 +169,20 @@ for (const [name, decl] of declared) {
   for (const dep of declaredDeps) {
     if (!found.has(dep)) r.warn(`${name}: dependsOn declares ${dep}, but no import uses it (stale model)`);
   }
+}
+
+// The isolation-role rule above lets `startTestApi` stand in for an explicit
+// application-role connection. That is only true while the helper actually points
+// the application at the non-owner URL, so the stand-in is verified rather than
+// trusted: if this ever changes, a dozen suites stop exercising row-level security
+// at once and nothing else would say so.
+const apiHelper = join(ROOT, 'src/test/api.helper.ts');
+if (existsSync(apiHelper) && !/DATABASE_URL:\s*db\.appUrl/.test(readFileSync(apiHelper, 'utf8'))) {
+  r.error(
+    'src/test/api.helper.ts no longer points DATABASE_URL at db.appUrl — every suite that uses\n' +
+      '      startTestApi has silently stopped running as the application role, so row-level security\n' +
+      '      is not in force for any of them.',
+  );
 }
 
 // --- events -----------------------------------------------------------------

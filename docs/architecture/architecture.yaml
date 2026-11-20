@@ -102,7 +102,7 @@ modules:
     invariants:
       - "The debit and the redemption intent are one transaction; redeeming never calls an operator."
       - "Issuance takes a LEASE on its claim, so a worker that dies mid-call cannot wedge a redemption (migration 0012)."
-      - "On the FIRST issuance attempt the operator call runs inside the outbox consumer's transaction — TD-0011."
+      - "The operator call is never inside a transaction: the consumer only marks a redemption due, the sweep issues it."
       - "An Idempotency-Key replay returns the first redemption and debits once."
       - "Leaving 'issuing' without an external reference refunds the coins, keyed on the redemption id."
     dependsOn: [ledger, integration, identity]

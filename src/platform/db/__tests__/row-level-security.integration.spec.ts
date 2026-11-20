@@ -83,6 +83,23 @@ describe('platform/db — row-level security', () => {
     await expect(app`truncate infra.audit_log`).rejects.toThrowError(/permission|denied|owner/i);
   });
 
+  it('S9 — the partition root is readable before a tenant is known, and scoped once it is', async () => {
+    // Resolving "which tenant is this key" is the step that ESTABLISHES the
+    // tenant, so it cannot require one: with nothing in context the lookup has to
+    // work, and once a tenant is set it must see only that tenant's keys. Both
+    // halves matter — the first is what every request depends on, and the second
+    // is why identity's own isolation test runs as the owner (it asserts that
+    // `authenticate` ignores the ambient tenant, which this policy would mask).
+    await testDb.sql`insert into identity.tenant_api_key (key_id, tenant_id, secret_digest) values
+      ('key-a', 'tenant-a', 'digest-a'), ('key-b', 'tenant-b', 'digest-b')`;
+
+    const blind = await asTenant(null, async (tx) => tx`select key_id from identity.tenant_api_key order by key_id`);
+    expect(blind.map((row) => row.key_id)).toEqual(['key-a', 'key-b']);
+
+    const scoped = await asTenant('tenant-a', async (tx) => tx`select key_id from identity.tenant_api_key order by key_id`);
+    expect(scoped.map((row) => row.key_id)).toEqual(['key-a']);
+  });
+
   it('S7 — every tenant-owned table in EVERY schema has row-level security and a policy', async () => {
     // The census is over the whole catalogue, not a list of schemas written down
     // here. A hardcoded schema list cannot see a NEW module's schema, which is

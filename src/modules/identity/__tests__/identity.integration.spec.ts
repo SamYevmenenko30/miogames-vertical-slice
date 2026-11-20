@@ -28,6 +28,9 @@ const seedTenant = async (id: string, keyId: string, secret: string) => {
 
 beforeAll(async () => {
   testDb = await createTestDb('identity');
+  // The OWNER on purpose: this file seeds and asserts on credential rows whose
+  // policies deliberately allow a row through before any tenant is established.
+  // The isolation half is proved as the application role, next door.
   database = createDatabase({ url: testDb.url });
   uow = new UnitOfWork(database);
   const clock = new FixedClock(new Date('2026-11-20T12:00:00.000Z'));

@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { scopedWhere } from '../../../../platform/db/scoped';
 import { currentTenantId } from '../../../../platform/db/tenant-context';
 import type { UnitOfWork } from '../../../../platform/db/unit-of-work';
@@ -103,6 +103,27 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
     `);
     const row = rows[0];
     return row ? fromRow(row) : null;
+  }
+
+  /**
+   * Make a freshly requested redemption due for the sweep. The outbox consumer
+   * calls this instead of issuing inline, so the operator call never happens
+   * inside the consumer's transaction (see IssueRewardUseCase).
+   */
+  async markDueForIssuance(id: string, now: Date): Promise<void> {
+    await this.uow.tx
+      .update(redemption)
+      .set({ nextAttemptAt: now, updatedAt: now })
+      .where(
+        and(
+          scopedWhere(redemption),
+          eq(redemption.id, id),
+          eq(redemption.status, 'pending_issuance'),
+          // Only when it has no schedule yet: a redelivered event must not pull a
+          // backoff the sweep has already set forward.
+          isNull(redemption.nextAttemptAt),
+        ),
+      );
   }
 
   async markIssued(id: string, externalRef: string, now: Date): Promise<void> {

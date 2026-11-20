@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { withTenant } from '../../../platform/db/tenant-context';
+import { UnitOfWork } from '../../../platform/db/unit-of-work';
 import { createCasinoMock } from '../../../mocks/casino-platform/app';
 import { startTestApi, type TestApi } from '../../../test/api.helper';
 import { IdentityFacade } from '../../identity';
@@ -78,8 +79,12 @@ const balance = async (tenant: keyof typeof operatorKeys) => {
  */
 const drain = async () => {
   api.clock.advance(1000);
-  await api.app.get(IssuanceWorker).runDueRetries();
 
+  // RELAY FIRST, then the sweep — the order the worker and `pnpm smoke` use. The
+  // consumer no longer issues anything; it only marks the redemption due, and the
+  // sweep is the one thing that calls an operator (see IssueRewardUseCase). With
+  // the sweep first, a freshly requested redemption would wait a whole extra
+  // drain for its first attempt.
   const consumer = api.app.get(IssueRedemptionConsumer);
   const rows = await api.db.sql`
     select id, tenant_id, name, aggregate_type, aggregate_id, payload, occurred_at
@@ -96,6 +101,8 @@ const drain = async () => {
     });
     await api.db.sql`update infra.outbox set published_at = now() where id = ${row.id}`;
   }
+
+  await api.app.get(IssuanceWorker).runDueRetries();
 };
 
 beforeAll(async () => {
@@ -324,6 +331,31 @@ describe('rewards — issuance', () => {
     expect(recovered.externalRef).toMatch(/^A-/);
     // Paid for once, and received: no refund, no second debit.
     expect(await balance('tenant-a')).toBe(before - 100);
+  });
+
+  it('S13 — the operator call happens with NO database transaction open', async () => {
+    const id = await redeem('tenant-a', 'k13');
+    const uow = api.app.get(UnitOfWork);
+    const integration = api.app.get(IntegrationFacade);
+    const real = integration.issueReward.bind(integration);
+    const observed: boolean[] = [];
+    (integration as unknown as { issueReward: unknown }).issueReward = async (...args: unknown[]) => {
+      observed.push(uow.inTransaction());
+      return (real as (...a: unknown[]) => Promise<unknown>)(...args);
+    };
+    try {
+      await drain();
+    } finally {
+      (integration as unknown as { issueReward: unknown }).issueReward = real;
+    }
+
+    expect((await statusOf('tenant-a', id)).status).toBe('issued');
+    // An HTTP call inside a transaction holds a pooled connection for as long as
+    // the operator's timeout. This observed `true` on every FIRST attempt while
+    // the outbox consumer issued inline: `UnitOfWork` is re-entrant, so the use
+    // case's own `withTransaction` joined the consumer's instead of opening and
+    // closing one. The consumer now only marks the redemption due.
+    expect(observed).toEqual([false]);
   });
 
   it('S12 — an `issuing` row left behind with no lease at all is recovered too', async () => {

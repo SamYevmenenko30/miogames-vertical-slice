@@ -18,6 +18,12 @@ const asA = <T>(fn: () => Promise<T>) => withTenant('tenant-a', fn);
 
 beforeAll(async () => {
   testDb = await createTestDb('ledger');
+  // The OWNER on purpose, so row-level security is NOT in force here: this file
+  // proves the application-level scoping layer on its own, and a predicate that
+  // the database would also have filtered cannot be shown to be load-bearing
+  // while the database is filtering. The RLS layer is proved by
+  // platform/db/row-level-security and by the *-isolation* suites, which run as
+  // the application role.
   database = createDatabase({ url: testDb.url });
   uow = new UnitOfWork(database);
   ledger = new LedgerFacade(uow, new LedgerRepository(uow), new FixedClock(new Date('2026-11-20T12:00:00.000Z')));
@@ -122,6 +128,28 @@ describe('ledger — movements', () => {
 
     expect(again.id).toBe(first.id);
     expect(await asA(async () => ledger.balanceOf(player))).toBe(70);
+  });
+
+  it("S5 — a replay returns THIS tenant's entry, never another tenant's with the same key", async () => {
+    // The same idempotency key in two tenants is two entries: the UNIQUE is per
+    // tenant. Tenant B's row is written FIRST, so a re-read that matches on the
+    // key alone finds B's before A's and hands another tenant's entry — its id,
+    // its player and its amount — back to A. Nothing used to cover the scope of
+    // that re-read; only row-level security stood between it and a leak, and this
+    // suite deliberately runs as the owner, where RLS does not apply.
+    const otherPlayer = randomUUID();
+    await withTenant('tenant-b', async () =>
+      ledger.credit({ playerId: otherPlayer, coins: 999, reason: 'spin.prize', idempotencyKey: 'shared-key' }),
+    );
+    const mine = await asA(async () =>
+      ledger.credit({ playerId: player, coins: 100, reason: 'spin.prize', idempotencyKey: 'shared-key' }),
+    );
+    const replay = await asA(async () =>
+      ledger.credit({ playerId: player, coins: 100, reason: 'spin.prize', idempotencyKey: 'shared-key' }),
+    );
+
+    expect(replay.id).toBe(mine.id);
+    expect(replay).toMatchObject({ tenantId: 'tenant-a', playerId: player, coins: 100 });
   });
 
   it('S6 — two concurrent debits of 60 against 100: one succeeds, the balance ends at 40', async () => {
