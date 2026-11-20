@@ -1,0 +1,114 @@
+# The architecture model this repository is checked against.
+#
+# `pnpm arch-check` reads this file and the source tree and fails when they
+# disagree. It is the machine-checked half of docs/architecture/README.md:
+# prose can drift, a gate cannot. What it enforces today:
+#
+#   * every directory in src/modules is declared here, and every module
+#     declared here exists;
+#   * every module has the three rings and a facade (index.ts);
+#   * every module has an AGENTS.md stating its own invariants;
+#   * every cross-module import that exists in the code is DECLARED in
+#     dependsOn (declared-but-unused is a warning, undeclared is an error —
+#     so a new coupling cannot appear without a reviewer seeing this file
+#     change);
+#   * every event name published or consumed in code is declared, and every
+#     declared event exists in src/contracts/events.
+#
+version: 1
+
+platform:
+  # Platform carries no business knowledge. The linter forbids it from importing
+  # any module; this list exists so a new platform concern is a visible decision.
+  - { name: config,        path: src/platform/config,        purpose: "Typed, validated environment. The only place process.env is read." }
+  - { name: db,            path: src/platform/db,            purpose: "Drizzle client, unit-of-work on AsyncLocalStorage, tenant-scoped query helpers." }
+  - { name: events,        path: src/platform/events,        purpose: "Transactional outbox, relay, idempotent consumer base, processed-event store." }
+  - { name: http,          path: src/platform/http,          purpose: "problem+json errors, API-key/HMAC and player-token guards, Idempotency-Key handling." }
+  - { name: observability, path: src/platform/observability,  purpose: "Structured logging with request/tenant/trace context, health." }
+  - { name: crypto,        path: src/platform/crypto,        purpose: "HMAC signing and verification, seed generation, constant-time compare." }
+  - { name: clock,         path: src/platform/clock,          purpose: "Injectable time. Nothing in the domain calls Date.now()." }
+  - { name: audit,         path: src/platform/audit,          purpose: "Append-only audit log writer for configuration and money-shaped events." }
+
+modules:
+  - name: identity
+    purpose: >
+      Who is calling and whose player this is. Tenants, their API credentials, players, and the
+      mapping between an operator's player id and ours.
+    invariants:
+      - "(tenant_id, external_player_id) is unique: one operator player maps to exactly one of our players."
+      - "A player is provisioned only from an authenticated operator event, never from a client-supplied id."
+    dependsOn: []
+    emits: []
+    consumes: []
+    extraction: { candidate: false, reason: "Small, read-mostly, and every module needs it synchronously." }
+
+  - name: integration
+    purpose: >
+      The casino integration layer. The only module that knows an operator dialect exists:
+      inbound event schemas translate to the canonical event, outbound reward calls translate
+      from the canonical reward intent.
+    invariants:
+      - "A dialect lives in exactly one adapter; no operator name appears anywhere outside this module."
+      - "Every outbound call has a timeout and classifies its failure as retryable or terminal."
+    dependsOn: []
+    emits: []
+    consumes: []
+    extraction: { candidate: true, order: 3, trigger: "Operator #10, or a partner team shipping its own adapter." }
+
+  - name: ingestion
+    purpose: >
+      Webhook intake. Authenticates the operator, validates its dialect, deduplicates, stores the
+      raw envelope for audit, and emits one canonical event. It decides nothing about rewards.
+    invariants:
+      - "Deduplication is a unique index on (tenant_id, operator_event_id), not a lookup-then-insert."
+      - "A replayed event returns the original event id and causes no second effect."
+      - "The raw envelope is stored verbatim before any interpretation."
+    dependsOn: [identity, integration]
+    emits: [casino.deposit.observed]
+    consumes: []
+    extraction: { candidate: true, order: 1, trigger: "Peak operator traffic, or 'must not drop an event while the core deploys'." }
+
+  - name: gamification
+    purpose: >
+      The rules engine and the wheel. Turns a canonical signal into spin entitlements, and a spin
+      into a deterministic, server-authoritative outcome.
+    invariants:
+      - "An entitlement leaves 'granted' exactly once, by conditional UPDATE — concurrent spins cannot both win."
+      - "The outcome is a pure function of (server seed, spin id, pinned wheel config version). No client input enters it."
+      - "A wheel configuration is versioned and never updated in place; an entitlement keeps the version it was granted under."
+      - "The seed hash is committed when the entitlement is granted and the seed is revealed after the spin."
+    dependsOn: [identity, ledger]
+    emits: [gamification.spin.completed]
+    consumes: [casino.deposit.observed]
+    extraction: { candidate: true, order: 4, trigger: "A games team needing its own release cadence." }
+
+  - name: ledger
+    purpose: >
+      Virtual currency. Append-only entries and a balance the database refuses to let go negative.
+      A leaf module: it is called by everyone and calls nobody.
+    invariants:
+      - "Balance is a row with CHECK (balance >= 0); a debit that would breach it fails the transaction."
+      - "Every entry carries a unique idempotency key, so a retried credit or debit moves nothing twice."
+      - "Entries are never updated or deleted; a correction is a compensating entry."
+    dependsOn: []
+    emits: []
+    consumes: []
+    extraction: { candidate: false, reason: "Splitting it turns one transaction into a two-phase reservation protocol. Not until write volume forces it." }
+
+  - name: rewards
+    purpose: >
+      The bonus store and the redemption lifecycle: price an item, debit coins, ask the operator
+      to issue the reward, track the outcome, refund when issuance finally fails.
+    invariants:
+      - "The debit and the redemption intent are one transaction; the external call is never inside it."
+      - "An Idempotency-Key replay returns the first redemption and debits once."
+      - "Leaving 'issuing' without an external reference refunds the coins, keyed on the redemption id."
+    dependsOn: [ledger, integration, identity]
+    emits: [rewards.redemption.requested, rewards.redemption.issued, rewards.redemption.failed]
+    consumes: [rewards.redemption.requested]
+    extraction: { candidate: true, order: 2, trigger: "Per-operator rate limits, circuit breakers and separate on-call for outbound I/O." }
+
+compositions:
+  - { name: api,    path: src/main.api.ts,    purpose: "HTTP: operator ingest, player actions, admin configuration." }
+  - { name: worker, path: src/main.worker.ts, purpose: "Outbox relay, event consumers, issuance retries, expiry jobs." }
+  - { name: casino-mock, path: src/mocks/casino-platform/main.ts, purpose: "Two simulated operators with different dialects and injectable failures." }
