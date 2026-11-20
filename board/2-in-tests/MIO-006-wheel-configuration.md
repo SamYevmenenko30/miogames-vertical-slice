@@ -1,13 +1,13 @@
 ---
 id: MIO-006
 title: "gamification: versioned wheel configuration and its admin adapter"
-column: 1-in-spec
+column: 2-in-tests
 type: feature
 module: gamification
 part: "A, C"
 depends_on: [MIO-001]
 spec: docs/specs/MIO-006.md
-gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
 ---
 # MIO-006 — gamification: versioned wheel configuration and its admin adapter
 
@@ -31,7 +31,7 @@ An entitlement must pin the odds it was granted under. That is only possible if 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 7 statements, 2 questions |
-| tests-from-spec | — | `red-check` | — |
+| tests-from-spec | 2026-11-20 | `red-check` | PASS — 3 files red at the merge-base |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
 

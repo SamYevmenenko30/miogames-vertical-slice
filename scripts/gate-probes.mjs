@@ -162,6 +162,21 @@ const probes = [
     },
   },
   {
+    name: 'spec-gate/a-bullet-that-is-not-a-question',
+    gate: ['node', ['scripts/spec-gate.mjs', 'MIO-999']],
+    expect: /is a bullet under "## Open questions" that is not a/i,
+    setup() {
+      write('board/2-in-tests/MIO-999-probe.md',
+        `---\nid: MIO-999\ntitle: "probe"\ncolumn: 2-in-tests\ntype: feature\nmodule: ledger\npart: "C"\ndepends_on: []\nspec: docs/specs/MIO-999.md\n---\n\n# probe\n`);
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **Q1 — should a refund be partial?** → **Answered** (Sam, 2026-11-20): no.\n`);
+    },
+    plant() {
+      write('docs/specs/MIO-999.md',
+        `# SPEC: MIO-999 — probe\n\n## Behaviour spec\n\n- **S1 — something.** It does something.\n\n## Open questions\n\n- **S/Q1 — should a refund be partial?** Nobody has decided.\n`);
+    },
+  },
+  {
     name: 'spec-gate/answer-without-an-owner',
     gate: ['node', ['scripts/spec-gate.mjs', 'MIO-999']],
     expect: /answered without "\(who, YYYY-MM-DD\)"/i,
