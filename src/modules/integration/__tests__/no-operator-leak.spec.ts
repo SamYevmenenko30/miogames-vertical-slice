@@ -8,12 +8,21 @@ import { describe, expect, it } from 'vitest';
  * operator #10 a one-adapter change.
  */
 const scan = (): string[] => {
-  const out = execFileSync(
-    'git',
-    ['grep', '-l', '-E', 'casino-(a|b)\\b', '--', 'src', 'db'],
-    { encoding: 'utf8', cwd: process.cwd() },
-  );
-  return out.split('\n').filter(Boolean);
+  // `--untracked`, because during the implementation phase the files that would
+  // leak are not committed yet — without it this test measures the index and
+  // passes vacuously exactly when it matters. And exit code 1 means "no matches",
+  // which is a result, not a failure.
+  try {
+    const out = execFileSync(
+      'git',
+      ['grep', '-l', '--untracked', '-E', 'casino-(a|b)\\b', '--', 'src', 'db'],
+      { encoding: 'utf8', cwd: process.cwd() },
+    );
+    return out.split('\n').filter(Boolean);
+  } catch (error) {
+    if ((error as { status?: number }).status === 1) return [];
+    throw error;
+  }
 };
 
 describe('integration — operator names do not leak', () => {
