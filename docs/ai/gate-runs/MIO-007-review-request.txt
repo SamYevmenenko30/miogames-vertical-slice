@@ -1,0 +1,123 @@
+# MIO-007 — review:request
+# base ad64af08e572e75ddbbf124cffe824dcc07671e1
+# head 07dfb8359ed6a26d716dee4551247a17b9a085eb
+
+$ spec-gate
+MIO-007: 11 statements, 2 question(s)
+
+spec-gate MIO-007: PASS
+
+$ red-check
+red-check — base ad64af08, 6 added test file(s)
+
+✓  assertion-red  src/modules/gamification/__tests__/gamification-isolation.integration.spec.ts
+✓  crash-red      src/modules/gamification/__tests__/grant-entitlements.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/gamification/__tests__/reward-rules.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/gamification/__tests__/spin.integration.spec.ts
+      Cannot find module
+✓  crash-red      src/modules/gamification/__tests__/wheel-admin.integration.spec.ts
+      schema "gamification" does not exist
+✓  crash-red      src/modules/gamification/__tests__/wheel-draw.spec.ts
+      Cannot find module
+
+6 file(s): 1 assertion-red, 5 crash-red
+   5 of them are crash-red: they prove "cannot pass without the branch",
+   not "asserts the right thing". Prefer assertion-red where you can.
+
+red-check: PASS — every added test file fails without this branch.
+
+$ test-guard
+⚠  src/modules/gamification/__tests__/gamification-isolation.integration.spec.ts: modified under spec-conflict — "extended with S11; the file was written for MIO-006 and the spin's isolation case belongs beside it rather than in a third file". The ticket goes back to the spec phase.
+⚠  src/modules/gamification/__tests__/spin.integration.spec.ts: modified under spec-conflict — "S6 advanced the clock past the entitlement's expiry, which also expires the 1h player token, so the expected 409 would have arrived as a 401 and the test would have proved the wrong thing". The ticket goes back to the spec phase.
+⚠  src/modules/gamification/__tests__/wheel-admin.integration.spec.ts: modified under spec-conflict — "the cleanup used DELETE on infra.audit_log, which the append-only trigger refuses by design (TRUNCATE is not blocked — TD-0010), and the `body: unknown` annotation did not typecheck against supertest's signature. No assertion changed.". The ticket goes back to the spec phase.
+
+test-guard: PASS (3 warning(s))
+
+$ arch-check
+rewards: declared, not built yet (card MIO-009 in 0-backlog)
+   event rewards.redemption.requested: declared, no schema yet (card MIO-009)
+   event rewards.redemption.issued: declared, no schema yet (card MIO-009)
+   event rewards.redemption.failed: declared, no schema yet (card MIO-009)
+   6 modules declared, 5 on disk, 5 events
+✗  event gamification.spin.completed is declared in architecture.yaml but has no schema in src/contracts/events
+
+arch-check: FAIL — 1 problem(s)
+
+$ board:check
+15 cards, 0 in progress, base ad64af08
+⚠  MIO-000: no spec, waived — "This card builds the gate set itself; its correctness criterion is gate-probes, not a behaviour spec. Every card after it is gated on having one."
+
+board:check: PASS (1 warning(s))
+
+$ lint
+> miogames-slice@0.1.0 lint /Users/semenyevmenenko/work/mio-games
+> eslint .
+
+
+/Users/semenyevmenenko/work/mio-games/src/modules/gamification/application/ports.ts
+  32:26  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+  45:10  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+  56:50  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
+
+✖ 3 problems (3 errors, 0 warnings)
+
+ ELIFECYCLE  Command failed with exit code 1.
+
+$ typecheck
+> miogames-slice@0.1.0 typecheck /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.json --noEmit
+
+$ tests
+> miogames-slice@0.1.0 test /Users/semenyevmenenko/work/mio-games
+> vitest run
+
+
+ RUN  v5.1.1 /Users/semenyevmenenko/work/mio-games
+
+
+ Test Files  26 passed (26)
+      Tests  181 passed (181)
+   Start at  15:55:53
+   Duration  17.40s (tests 56%, import 41%, transform 2%)
+
+$ build
+> miogames-slice@0.1.0 build /Users/semenyevmenenko/work/mio-games
+> tsc -p tsconfig.build.json
+
+$ gate-probes
+gate-probes — 23 probe(s)
+
+✗  lint/domain-ring-stays-pure  (baseline)
+✗  lint/no-deep-import-across-modules  (baseline)
+✗  lint/application-may-not-reach-into-an-adapter  (baseline)
+✗  lint/a-facade-may-not-re-export-an-adapter  (baseline)
+✗  arch-check/stray-file-at-a-module-root  (baseline)
+✗  lint/config-read-outside-platform-config  (baseline)
+✗  arch-check/undeclared-module  (baseline)
+✗  arch-check/platform-importing-a-module  (baseline)
+✗  arch-check/undeclared-cross-module-import  (baseline)
+✗  arch-check/module-without-isolation-test  (baseline)
+✓  spec-gate/unanswered-open-question
+✓  spec-gate/a-bullet-that-is-not-a-question
+✓  spec-gate/answer-without-an-owner
+node:fs:1020
+  binding.rename(
+          ^
+
+Error: ENOENT: no such file or directory, rename '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/0-backlog/MIO-008-coin-ledger.md' -> '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/3-in-progress/MIO-008-coin-ledger.md'
+    at renameSync (node:fs:1020:11)
+    at Object.plant (file:///Users/semenyevmenenko/work/mio-games/scripts/gate-probes.mjs:200:7)
+    at file:///Users/semenyevmenenko/work/mio-games/scripts/gate-probes.mjs:398:25
+    at ModuleJob.run (node:internal/modules/esm/module_job:345:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:651:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'rename',
+  path: '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/0-backlog/MIO-008-coin-ledger.md',
+  dest: '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/3-in-progress/MIO-008-coin-ledger.md'
+}
+
+Node.js v22.19.0

@@ -1,4 +1,6 @@
-import type { WheelSlice } from '../domain/wheel';
+import type { SpinEntitlement } from '../domain/entitlement';
+import type { RewardRule } from '../domain/reward-rule';
+import type { Prize, WheelSlice } from '../domain/wheel';
 
 export type WheelVersion = {
   wheelId: string;
@@ -29,7 +31,7 @@ export type NewEntitlement = {
 };
 
 export interface RewardRuleRepositoryPort {
-  activeRules(): Promise<import('../domain/reward-rule').RewardRule[]>;
+  activeRules(): Promise<RewardRule[]>;
 }
 
 
@@ -42,7 +44,7 @@ export type RecordedSpin = {
   serverSeed: string;
   seedHash: string;
   sliceId: string;
-  prize: import('../domain/wheel').Prize;
+  prize: Prize;
   coinsCredited: number;
   spunAt: Date;
 };
@@ -53,7 +55,7 @@ export interface SpinRepositoryPort {
 
 export interface EntitlementRepositoryPort {
   grant(entitlements: NewEntitlement[]): Promise<void>;
-  claimOne(playerId: string, now: Date): Promise<import('../domain/entitlement').SpinEntitlement | null>;
+  claimOne(playerId: string, now: Date): Promise<SpinEntitlement | null>;
   countClaimable(playerId: string, now: Date): Promise<number>;
   expireDue(now: Date): Promise<number>;
 }

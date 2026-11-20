@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { GAMIFICATION_SPIN_COMPLETED } from '../../../contracts/events';
 import type { Clock } from '../../../platform/clock/clock';
 import { uniform01 } from '../../../platform/crypto/crypto';
 import type { UnitOfWork } from '../../../platform/db/unit-of-work';
 import { ConflictError } from '../../../platform/http/errors';
+import type { EventBusPort } from '../../../platform/events/outbox';
 import type { LedgerFacade } from '../../ledger';
 import { weightedPick, type Prize, type WheelSlice } from '../domain/wheel';
 import type { EntitlementRepositoryPort, SpinRepositoryPort, WheelRepositoryPort } from './ports';
@@ -34,6 +36,7 @@ export class SpinUseCase {
     private readonly wheels: WheelRepositoryPort,
     private readonly spins: SpinRepositoryPort,
     private readonly ledger: LedgerFacade,
+    private readonly bus: EventBusPort,
     private readonly clock: Clock,
   ) {}
 
@@ -83,6 +86,25 @@ export class SpinUseCase {
         prize: slice.prize,
         coinsCredited: coins,
         spunAt: now,
+      });
+
+      // Published in the same transaction as the spin. No consumer exists in this
+      // slice; a new game mode subscribes here rather than being wired into the
+      // deposit path (Part E question 3).
+      await this.bus.publish({
+        name: GAMIFICATION_SPIN_COMPLETED,
+        tenantId: entitlement.tenantId,
+        aggregateType: 'spin',
+        aggregateId: spinId,
+        payload: {
+          spinId,
+          playerId,
+          wheelId: entitlement.wheelId,
+          wheelVersion: entitlement.wheelVersion,
+          sliceId: slice.id,
+          coinsCredited: coins,
+          spunAt: now.toISOString(),
+        },
       });
 
       return {

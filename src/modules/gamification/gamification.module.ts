@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditLog } from '../../platform/audit/audit-log';
 import { UnitOfWork } from '../../platform/db/unit-of-work';
+import { EVENT_BUS, type EventBusPort } from '../../platform/events/outbox';
 import { IdentityModule } from '../identity/identity.module';
 import { CLOCK, type Clock } from '../../platform/clock/clock';
 import { IdentityFacade } from '../identity';
@@ -53,15 +54,16 @@ import { WheelConfigService } from './application/wheel-config.service';
     { provide: SpinRepository, inject: [UnitOfWork], useFactory: (uow: UnitOfWork) => new SpinRepository(uow) },
     {
       provide: SpinUseCase,
-      inject: [UnitOfWork, EntitlementRepository, WheelRepository, SpinRepository, LedgerFacade, CLOCK],
+      inject: [UnitOfWork, EntitlementRepository, WheelRepository, SpinRepository, LedgerFacade, EVENT_BUS, CLOCK],
       useFactory: (
         uow: UnitOfWork,
         entitlements: EntitlementRepository,
         wheels: WheelRepository,
         spins: SpinRepository,
         ledger: LedgerFacade,
+        bus: EventBusPort,
         clock: Clock,
-      ) => new SpinUseCase(uow, entitlements, wheels, spins, ledger, clock),
+      ) => new SpinUseCase(uow, entitlements, wheels, spins, ledger, bus, clock),
     },
     {
       provide: DepositObservedConsumer,
