@@ -1,6 +1,6 @@
 # MIO-007 — review:request
 # base ad64af08e572e75ddbbf124cffe824dcc07671e1
-# head 07dfb8359ed6a26d716dee4551247a17b9a085eb
+# head ccb48331cfac7ceaa7d2f5dea2f27225983d656e
 
 $ spec-gate
 MIO-007: 11 statements, 2 question(s)
@@ -41,9 +41,8 @@ rewards: declared, not built yet (card MIO-009 in 0-backlog)
    event rewards.redemption.issued: declared, no schema yet (card MIO-009)
    event rewards.redemption.failed: declared, no schema yet (card MIO-009)
    6 modules declared, 5 on disk, 5 events
-✗  event gamification.spin.completed is declared in architecture.yaml but has no schema in src/contracts/events
 
-arch-check: FAIL — 1 problem(s)
+arch-check: PASS
 
 $ board:check
 15 cards, 0 in progress, base ad64af08
@@ -54,16 +53,6 @@ board:check: PASS (1 warning(s))
 $ lint
 > miogames-slice@0.1.0 lint /Users/semenyevmenenko/work/mio-games
 > eslint .
-
-
-/Users/semenyevmenenko/work/mio-games/src/modules/gamification/application/ports.ts
-  32:26  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
-  45:10  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
-  56:50  error  `import()` type annotations are forbidden  @typescript-eslint/consistent-type-imports
-
-✖ 3 problems (3 errors, 0 warnings)
-
- ELIFECYCLE  Command failed with exit code 1.
 
 $ typecheck
 > miogames-slice@0.1.0 typecheck /Users/semenyevmenenko/work/mio-games
@@ -79,8 +68,8 @@ $ tests
 
  Test Files  26 passed (26)
       Tests  181 passed (181)
-   Start at  15:55:53
-   Duration  17.40s (tests 56%, import 41%, transform 2%)
+   Start at  16:03:36
+   Duration  26.49s (tests 56%, import 41%, transform 2%)
 
 $ build
 > miogames-slice@0.1.0 build /Users/semenyevmenenko/work/mio-games
@@ -89,16 +78,16 @@ $ build
 $ gate-probes
 gate-probes — 23 probe(s)
 
-✗  lint/domain-ring-stays-pure  (baseline)
-✗  lint/no-deep-import-across-modules  (baseline)
-✗  lint/application-may-not-reach-into-an-adapter  (baseline)
-✗  lint/a-facade-may-not-re-export-an-adapter  (baseline)
-✗  arch-check/stray-file-at-a-module-root  (baseline)
-✗  lint/config-read-outside-platform-config  (baseline)
-✗  arch-check/undeclared-module  (baseline)
-✗  arch-check/platform-importing-a-module  (baseline)
-✗  arch-check/undeclared-cross-module-import  (baseline)
-✗  arch-check/module-without-isolation-test  (baseline)
+✓  lint/domain-ring-stays-pure
+✓  lint/no-deep-import-across-modules
+✓  lint/application-may-not-reach-into-an-adapter
+✓  lint/a-facade-may-not-re-export-an-adapter
+✓  arch-check/stray-file-at-a-module-root
+✓  lint/config-read-outside-platform-config
+✓  arch-check/undeclared-module
+✓  arch-check/platform-importing-a-module
+✓  arch-check/undeclared-cross-module-import
+✓  arch-check/module-without-isolation-test
 ✓  spec-gate/unanswered-open-question
 ✓  spec-gate/a-bullet-that-is-not-a-question
 ✓  spec-gate/answer-without-an-owner
@@ -106,7 +95,7 @@ node:fs:1020
   binding.rename(
           ^
 
-Error: ENOENT: no such file or directory, rename '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/0-backlog/MIO-008-coin-ledger.md' -> '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/3-in-progress/MIO-008-coin-ledger.md'
+Error: ENOENT: no such file or directory, rename '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-47261/board/0-backlog/MIO-008-coin-ledger.md' -> '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-47261/board/3-in-progress/MIO-008-coin-ledger.md'
     at renameSync (node:fs:1020:11)
     at Object.plant (file:///Users/semenyevmenenko/work/mio-games/scripts/gate-probes.mjs:200:7)
     at file:///Users/semenyevmenenko/work/mio-games/scripts/gate-probes.mjs:398:25
@@ -116,8 +105,8 @@ Error: ENOENT: no such file or directory, rename '/Users/semenyevmenenko/work/mi
   errno: -2,
   code: 'ENOENT',
   syscall: 'rename',
-  path: '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/0-backlog/MIO-008-coin-ledger.md',
-  dest: '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-40788/board/3-in-progress/MIO-008-coin-ledger.md'
+  path: '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-47261/board/0-backlog/MIO-008-coin-ledger.md',
+  dest: '/Users/semenyevmenenko/work/mio-games/.tmp/probe-wt-47261/board/3-in-progress/MIO-008-coin-ledger.md'
 }
 
 Node.js v22.19.0

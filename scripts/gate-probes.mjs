@@ -16,9 +16,20 @@
  *
  * Usage: pnpm gate-probes [name-fragment]
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
-import { ROOT, sh, trySh } from './lib/util.mjs';
+import { COLUMNS, ROOT, sh, trySh } from './lib/util.mjs';
 
 const WT = join(ROOT, '.tmp', `probe-wt-${process.pid}`);
 const filter = process.argv.slice(2).find((a) => !a.startsWith('-'));
@@ -34,6 +45,29 @@ const commit = (msg) => {
   sh('git', ['-C', WT, 'commit', '-q', '--no-verify', '-m', msg], { stdio: 'ignore' });
   return sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
 };
+
+/**
+ * Any two cards currently on the board, wherever they are.
+ *
+ * The first version of the board probes named cards by path, and silently broke
+ * the moment those cards moved to another column — a probe that cannot run is a
+ * gate that is no longer probed.
+ */
+function someCards(count) {
+  const found = [];
+  for (const column of COLUMNS) {
+    const dir = join(WT, 'board', column);
+    let entries = [];
+    try { entries = readdirSync(dir); } catch { continue; }
+    for (const name of entries) {
+      if (!name.endsWith('.md')) continue;
+      found.push({ column, name, path: join(dir, name) });
+      if (found.length === count) return found;
+    }
+  }
+  if (found.length < count) throw new Error(`gate-probes needs ${count} cards on the board, found ${found.length}`);
+  return found;
+}
 
 /** A module skeleton, so a boundary probe has somewhere legal to stand. */
 function scaffoldModule(name, deps = []) {
@@ -196,8 +230,10 @@ const probes = [
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /front-matter says column/i,
     plant() {
-      mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
-      renameSync(join(WT, 'board/0-backlog/MIO-008-coin-ledger.md'), join(WT, 'board/3-in-progress/MIO-008-coin-ledger.md'));
+      const [card] = someCards(1);
+      const target = card.column === '3-in-progress' ? '4-in-review' : '3-in-progress';
+      mkdirSync(join(WT, 'board', target), { recursive: true });
+      renameSync(card.path, join(WT, 'board', target, card.name));
     },
   },
   {
@@ -205,9 +241,19 @@ const probes = [
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /without a spec_waiver explaining why/i,
     plant() {
-      const p = join(WT, 'board/5-done/MIO-000-pipeline-and-gates.md');
-      const text = readFileSync(p, 'utf8').replace(/^spec_waiver:.*$/m, 'spec_waiver: ""');
-      writeFileSync(p, text);
+      // Whichever card waives its spec — named by its waiver, not by its path.
+      const waived = COLUMNS.flatMap((column) => {
+        const dir = join(WT, 'board', column);
+        let entries = [];
+        try { entries = readdirSync(dir); } catch { return []; }
+        return entries
+          .filter((name) => name.endsWith('.md'))
+          .map((name) => join(dir, name))
+          .filter((path) => /^spec:\s*none\s*$/m.test(readFileSync(path, 'utf8')));
+      });
+      if (waived.length === 0) throw new Error('no card waives its spec, so this probe has nothing to plant');
+      const text = readFileSync(waived[0], 'utf8').replace(/^spec_waiver:.*$/m, 'spec_waiver: ""');
+      writeFileSync(waived[0], text);
     },
   },
   {
@@ -215,13 +261,11 @@ const probes = [
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /WIP limit is 1/i,
     plant() {
-      for (const id of ['MIO-008-coin-ledger', 'MIO-006-wheel-configuration']) {
-        const from = join(WT, `board/0-backlog/${id}.md`);
-        mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
-        const to = join(WT, `board/3-in-progress/${id}.md`);
-        const text = readFileSync(from, 'utf8').replace('column: 0-backlog', 'column: 3-in-progress');
-        writeFileSync(to, text);
-        rmSync(from);
+      mkdirSync(join(WT, 'board/3-in-progress'), { recursive: true });
+      for (const card of someCards(2)) {
+        const text = readFileSync(card.path, 'utf8').replace(/^column: .*$/m, 'column: 3-in-progress');
+        writeFileSync(join(WT, 'board/3-in-progress', card.name), text);
+        rmSync(card.path);
       }
     },
   },
