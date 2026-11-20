@@ -29,7 +29,8 @@
     "review:request": "node scripts/review-request.mjs",
     "smoke": "node -r @swc-node/register scripts/smoke.ts",
     "gate-probes": "node scripts/gate-probes.mjs",
-    "docs-links": "node scripts/docs-links.mjs"
+    "docs-links": "node scripts/docs-links.mjs",
+    "smoke:samples": "node -r @swc-node/register scripts/smoke.ts --write-samples"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.11",

@@ -34,6 +34,8 @@ import { requestContext } from '../src/platform/observability/request-context.mi
 import { createSmokeDatabase } from './lib/smoke-db';
 import { seedEverything, STORE_ITEM, TENANTS, WHEEL_SLICES } from './seed-data';
 
+const writeSamples = process.argv.includes('--write-samples');
+
 type Sample = { title: string; request: string; response: string };
 const samples: Sample[] = [];
 let step = 0;
@@ -306,7 +308,17 @@ async function main(): Promise<void> {
       ok('replaying the deposit and the redemption changes nothing');
     }
 
-    // The samples the assignment asks for, captured rather than written.
+    // The samples the assignment asks for, captured rather than written — but
+    // only when asked for. `verify` runs this script, and a gate that rewrites a
+    // tracked file leaves a dirty tree after every successful run: a trap for a
+    // pre-push hook, for any CI step that asserts a clean tree, and for a reader
+    // who cannot tell the committed samples from the last run's uuids. Round two
+    // found it (S4); `pnpm smoke:samples` refreshes them deliberately.
+    if (!writeSamples) {
+      console.log(`\nsmoke: PASS — ${step} asserted steps across both operators`);
+      console.log('samples not rewritten; `pnpm smoke:samples` refreshes docs/samples/');
+      return;
+    }
     mkdirSync('docs/samples', { recursive: true });
     const lines = [
       '# Sample requests and responses',

@@ -16,15 +16,16 @@ pnpm smoke          # all eight Part B steps, both operators, asserted
 ```
 
 `pnpm smoke` output from this repository is in
-[docs/ai/gate-runs/final-smoke.txt](docs/ai/gate-runs/final-smoke.txt), and it writes the sample
-requests and responses itself.
+[docs/ai/gate-runs/final-smoke.txt](docs/ai/gate-runs/final-smoke.txt). It captures the sample
+requests and responses itself — `pnpm smoke:samples` writes them, while plain `pnpm smoke` (the
+one `verify` runs) asserts without touching a tracked file.
 
 ## Where each part of the assignment is answered
 
 | | |
 | --- | --- |
 | **A — architecture** | [docs/architecture/README.md](docs/architecture/README.md) · [diagrams](docs/architecture/diagram.md) · [7 ADRs](docs/decisions/) · [the machine-checked model](docs/architecture/architecture.yaml) |
-| **B — the working prototype** | `pnpm smoke` — 14 asserted steps across both operators · [captured samples](docs/samples/part-b-flow.http.md) |
+| **B — the working prototype** | `pnpm smoke` — 14 asserted steps across both operators · [captured samples](docs/samples/part-b-flow.http.md), refreshed with `pnpm smoke:samples` |
 | **C — reliability & security** | [docs/reliability.md](docs/reliability.md) — every case, its mechanism, and the test that proves it |
 | **D — AI-native development** | [docs/ai/evidence-log.md](docs/ai/evidence-log.md) · [which decisions were mine](docs/ai/human-decisions.md) · [AGENTS.md](AGENTS.md) · [the phase skills](.claude/skills/) · [docs/process.md](docs/process.md) · [raw gate runs](docs/ai/gate-runs/) |
 | **E — scaling the product** | [docs/scaling.md](docs/scaling.md) · [the first 90 days and the team](docs/plan/90-days.md) |

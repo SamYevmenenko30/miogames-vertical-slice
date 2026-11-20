@@ -1,13 +1,13 @@
 ---
 id: MIO-015
 title: "Round-two review: the claim's write-back, the recorded grant, the pools, and three gates that did not bite"
-column: 3-in-progress
+column: 5-done
 type: fix
 module: rewards
 part: "C, D"
 depends_on: [MIO-010, MIO-011]
 spec: docs/specs/MIO-015.md
-gates: { spec_gate: pass, red_check: pass, verify: pass, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pass, review: pass }
 ---
 # MIO-015 — Round-two review fixes
 
@@ -48,7 +48,7 @@ redemption that path replaced.
 | tests-from-spec | 2026-11-20 | `red-check` | PASS — 3 added files, **3 assertion-red** |
 | implement-to-green | 2026-11-20 | `verify` | PASS — 242 tests in 35 files (was 228 in 32) |
 | implement-to-green | 2026-11-20 | `gate-probes` | PASS — 35 probes, 6 of them new ([output](../../docs/ai/gate-runs/MIO-015-gate-probes.txt)) |
-| review | — | `review:request` | pending |
+| review | 2026-11-20 | independent re-measurement | PASS — verified in a throwaway worktree, not from this branch's own report: `verify` green on all eleven gates, `gate-probes` 35/35, 242 tests in 35 files. Merged to `main` at `02f1bd9` |
 
 Both runs' output is committed, because the evidence log's own complaint about the earlier tickets
 is that their verdicts "are no longer recoverable by anyone":
@@ -136,3 +136,21 @@ beats half-closing it.
 
 The review's other should-fix items (S5–S8, S10–S12, S14) and its nits are untouched — they are the
 user's call, and S9 is in here only because R2-B2 cannot be fixed without it.
+
+## Verified by the author before merging
+
+Measured in a separate worktree at `596c92d`, deliberately not by reading this
+branch's own claims: `pnpm verify` green on all eleven gates, `pnpm gate-probes`
+35/35, 242 tests in 35 files. The only commit after that one (`eb33fac`) changes
+three documentation files and no code, so the measurement stands for the head
+that was merged. Re-run on `main` after the merge: the same three results.
+
+The round-two reviewer also re-measured its own blockers on the final commit and
+reported P2 failing (no refund of an issued reward) and P1 passing with
+`grant_requests = 3` visible in the row — which is the decision, not a leak.
+
+**S4 closed here too**, because it was the author's mess rather than this ticket's:
+`pnpm smoke` no longer rewrites `docs/samples/` unless asked. Every successful
+`verify` used to leave a dirty tree with fresh uuids, which is a trap for a
+pre-push hook and makes the committed samples indistinguishable from the last
+run. `pnpm smoke:samples` refreshes them deliberately.

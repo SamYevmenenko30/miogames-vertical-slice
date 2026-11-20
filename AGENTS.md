@@ -51,6 +51,7 @@ real file the agent followed, not a sanitised copy.
 | `pnpm test-guard` | No spec test was modified, deleted, renamed-and-edited, or left `.only`/`.skip`-ped, without a declaration: `spec-conflict:`, `test-fix:`, `test-removed:` or `test-skipped:` (`.only` has no declaration — it silences its siblings). |
 | `pnpm arch-check` | The source tree matches `docs/architecture/architecture.yaml`. |
 | `pnpm docs-links` | Every relative markdown link resolves. |
+| `pnpm smoke` / `pnpm smoke:samples` | The whole Part B flow, asserted, for both operators. Plain `smoke` writes no tracked file; `smoke:samples` refreshes `docs/samples/`. |
 | `pnpm board` / `pnpm board:check` | Print the board / enforce card ↔ folder, WIP limit, ticket trailers. |
 | `pnpm gate-probes` | Plant a violation of every gate and assert the gate goes red. |
 | `pnpm review:request MIO-003` | Run the whole set and print the block that goes in the card's review section. |
