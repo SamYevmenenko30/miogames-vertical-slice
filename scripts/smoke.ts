@@ -81,6 +81,13 @@ async function call(
   return { status: response.status, body };
 }
 
+/** What each operator's own system expects when we ask it to emit a deposit. */
+function depositRequestFor(operator: string, player: string): Record<string, unknown> {
+  if (operator === 'casino-a') return { userId: player, amount: '50.00', currency: 'EUR' };
+  if (operator === 'casino-c') return { ref: player, value: '50.00', ccy: 'EUR' };
+  return { playerRef: player, amountCents: 5000, ccy: 'EUR' };
+}
+
 function sign(secret: string, body: string, timestampSeconds: number) {
   return {
     'content-type': 'application/json',
@@ -164,11 +171,7 @@ async function main(): Promise<void> {
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(
-            tenant.operator === 'casino-a'
-              ? { userId: player, amount: '50.00', currency: 'EUR' }
-              : { playerRef: player, amountCents: 5000, ccy: 'EUR' },
-          ),
+          body: JSON.stringify(depositRequestFor(tenant.operator, player)),
         },
       );
       expect(emitted.status === 200, 'the operator emitted a deposit', emitted.status);
@@ -315,7 +318,7 @@ async function main(): Promise<void> {
     // who cannot tell the committed samples from the last run's uuids. Round two
     // found it (S4); `pnpm smoke:samples` refreshes them deliberately.
     if (!writeSamples) {
-      console.log(`\nsmoke: PASS — ${step} asserted steps across both operators`);
+      console.log(`\nsmoke: PASS — ${step} asserted steps across every operator`);
       console.log('samples not rewritten; `pnpm smoke:samples` refreshes docs/samples/');
       return;
     }
@@ -330,7 +333,7 @@ async function main(): Promise<void> {
       lines.push(`## ${sample.title}`, '', '```http', sample.request, '```', '', '```http', sample.response, '```', '');
     }
     writeFileSync('docs/samples/part-b-flow.http.md', lines.join('\n'));
-    console.log(`\nsmoke: PASS — ${step} asserted steps across both operators`);
+    console.log(`\nsmoke: PASS — ${step} asserted steps across every operator`);
     console.log('samples written to docs/samples/part-b-flow.http.md');
   } catch (error) {
     failures = 1;

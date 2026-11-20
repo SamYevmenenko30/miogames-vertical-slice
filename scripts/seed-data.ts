@@ -12,6 +12,7 @@ import type { RewardsFacade } from '../src/modules/rewards';
 export const TENANTS = [
   { id: 'tenant-a', name: 'Casino Platform A', operator: 'casino-a', keyId: 'key-casino-a', secret: 'secret-casino-a' },
   { id: 'tenant-b', name: 'Casino Platform B', operator: 'casino-b', keyId: 'key-casino-b', secret: 'secret-casino-b' },
+  { id: 'tenant-c', name: 'Casino Platform C', operator: 'casino-c', keyId: 'key-casino-c', secret: 'secret-casino-c' },
 ] as const;
 
 export const WHEEL_SLICES = [

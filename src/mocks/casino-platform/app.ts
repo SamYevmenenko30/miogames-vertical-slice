@@ -137,6 +137,30 @@ export function createCasinoMock(): Express {
     res.status(200).json({ status: 'ACCEPTED', result: { commandRef: `B-${randomUUID()}` } });
   });
 
+  // ---- operator C: nested objects, unix seconds, PUT grants with a state field
+  app.post('/casino-c/deposits', async (req, res) => {
+    if ((await behave(req, res)) === 'handled') return;
+    const body = req.body as { ref?: string; value?: string; ccy?: string };
+    res.status(200).json({
+      type: 'PAYMENT_SETTLED',
+      id: `c-${randomUUID()}`,
+      account: { ref: body.ref ?? 'player-77' },
+      money: { value: body.value ?? '50.00', ccy: body.ccy ?? 'EUR' },
+      ts: Math.floor(Date.now() / 1000),
+    });
+  });
+
+  app.put('/casino-c/grants', async (req, res) => {
+    if ((await behave(req, res)) === 'handled') return;
+    const body = req.body as { account?: string; grant?: { type?: string; qty?: number } };
+    if (!body.account || !body.grant?.type || !(Number(body.grant?.qty) > 0)) {
+      res.status(400).json({ state: 'REJECTED', reason: 'account and a positive grant are required' });
+      return;
+    }
+    rewardCalls.set("casino-c", (rewardCalls.get("casino-c") ?? 0) + 1);
+    res.status(200).json({ id: `C-${randomUUID()}`, state: 'OK' });
+  });
+
   app.get('/health', (_req, res) => res.status(200).json({ ok: true }));
   return app;
 }
