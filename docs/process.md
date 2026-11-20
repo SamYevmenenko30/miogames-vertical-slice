@@ -56,18 +56,29 @@ Then the gate that makes this phase worth anything:
 clean worktree, stage *only that file*, run it, and require it to fail. Each file separately, so
 one red file cannot mask a green sibling behind an aggregate exit code. The gate distinguishes:
 
-- **assertion-red** — the test ran and its expectation failed. The strong result.
+- **assertion-red** — the test ran and its expectation failed. The strong result, and still not a
+  strong one: it proves an assertion failed, not that the assertion was about the branch. A test
+  that asserts a file exists on disk earns it. Every crash-red file must be declared individually
+  (`crash-red-accepted:`), because an assertion-red sibling proves nothing about it.
 - **crash-red** — the test could not even import the code the branch adds. Counts as red (it
   cannot pass without the branch) but proves less, and the gate says so.
 - **cannot verify** — the runner could not execute the file. This **fails the gate**; it is never
   counted as red.
+
+What it does not reach: added FILES only. A new `it(...)` inside a spec file that already existed
+is never run at the merge-base, so the pipeline's strongest claim does not cover it. The run names
+those files and `test-guard` demands a declaration for each; closing it properly is TD-0012.
 
 ### Phase 3 — implement-to-green
 
 Code until the tests pass. The spec tests are read-only. If one is wrong, the session stops and
 commits `spec-conflict: S7 — the spec requires 403 where tenant isolation requires 404`, which
 sends the ticket back to phase 1. `pnpm test-guard` compares the test files against their state
-at the merge-base and fails any modification without such a commit on the branch.
+at the merge-base and fails any change without such a commit on the branch — and "change" means
+all four shapes, because for a while it meant one: modified, added-then-bent, **deleted**, and
+**renamed-and-edited**. A round-two review walked a `git rm` and an `R098` straight past it, and
+past `red-check` too. It also refuses a committed `.only`, `.skip` or `.todo`: a test that does
+not run is the same lie as a bent one, told more cheaply, and nothing checked for it.
 
 ## The gate set
 
@@ -75,7 +86,7 @@ at the merge-base and fails any modification without such a commit on the branch
 | --- | --- | --- |
 | `spec-gate` | Is there a spec, with testable statements and no open question? | A question is unanswered, an `S`-id is duplicated, the card is missing |
 | `red-check` | Do the new tests actually test something? | A new test file passes at the merge-base, or cannot be run |
-| `test-guard` | Was a test bent to fit the code? | A pre-existing spec test changed without a `spec-conflict:` commit |
+| `test-guard` | Was a test bent, removed, renamed away, or quietly switched off? | A spec test is modified, deleted, or renamed-and-edited with no declaration (`spec-conflict:`, `test-fix:`, `test-removed:`), or any committed spec test carries `.only`, `.skip` or `.todo`. It saw only "modified" until a round-two review deleted a spec file and renamed another past it |
 | `arch-check` | Does the architecture still match its model? | An undeclared cross-module import, a missing ring, a module with no isolation test |
 | `lint` (boundaries) | Did a ring or a module boundary get crossed? | A domain file imports Nest/Drizzle; a deep import into another module |
 | `board:check` | Is the board honest? | Card front-matter column ≠ folder, more than one card in progress, a commit trailer naming a card that does not exist |
