@@ -1,13 +1,13 @@
 ---
 id: MIO-013
 title: "An end-to-end smoke run and the sample requests and responses"
-column: 0-backlog
+column: 1-in-spec
 type: chore
 module: tooling
 part: "B"
 depends_on: [MIO-011, MIO-012]
 spec: docs/specs/MIO-013.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-013 — An end-to-end smoke run and the sample requests and responses
 
@@ -26,7 +26,7 @@ A reviewer should be able to see all eight Part B steps happen on their own mach
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 6 statements, 2 questions |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
