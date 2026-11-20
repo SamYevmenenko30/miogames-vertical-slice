@@ -6,7 +6,11 @@ from a bonus store; the reward is issued back through the operator's own API —
 deliveries, concurrent requests, timeouts and failures a money-shaped system has to survive.
 
 Two simulated operators with **genuinely different schemas on both sides** drive the same
-gamification logic.
+gamification logic. A third was onboarded as a rehearsal, to measure what that claim costs: six
+files, none of them in the core ([scaling.md §2](docs/scaling.md)).
+
+The process around this — the specs, the board, the ten gates — is one card of sixteen. The other
+fifteen are the product.
 
 ```bash
 nvm use && pnpm install
@@ -33,18 +37,29 @@ one `verify` runs) asserts without touching a tracked file.
 
 ## What to look at first
 
-If you have ten minutes:
+**In two minutes.** `pnpm smoke`. It drives all eight Part B steps for both operators and asserts
+every one — and at the spin it takes the seed the API revealed, recomputes
+`weightedPick(slices, uniform01(seed, spinId))` with its own implementation, and asserts the slice
+matches. That is the fairness claim checked rather than described.
+
+**In ten.** Three documents, in this order:
 
 1. **[docs/architecture/README.md](docs/architecture/README.md) §2 and §6** — the six modules,
    what each must *not* own, and which of them should become services, in what order, on what
-   trigger.
-2. **[docs/ai/evidence-log.md](docs/ai/evidence-log.md)** — the gates found four dead gates on
-   their first run, and a dozen real defects after that. The table of what each would have cost
-   is the most honest thing in this repository.
-3. **`pnpm smoke`** — it recomputes the spin outcome from the seed the API revealed, with its own
-   implementation, and asserts the slice matches. The fairness claim checked rather than described.
-4. **Any card in [board/5-done/](board/5-done/)** — spec, red tests, implementation, review, in
-   that order, with the gate output and the findings.
+   trigger. §6 is the answer to "modules or services"; it names the trigger for each extraction
+   and the one split I would refuse.
+2. **[docs/review/](docs/review/)** — two independent adversarial reviews, run in separate
+   sessions against this code. The first found three blockers; the second found **two money
+   defects that the first round's fixes had introduced**, with a real `SIGKILL` across two worker
+   containers to prove one of them. Both are merged with the findings, not summarised.
+3. **[docs/ai/evidence-log.md](docs/ai/evidence-log.md)** — what the gates caught, and what each
+   would have cost. Read its *Honest limits* section: `red-check` proves a test fails without the
+   implementation, not that it asserts the right thing, and the document says so before a reviewer
+   can.
+
+**If you want to see the process rather than read about it:** any card in
+[board/5-done/](board/5-done/) carries its spec, its red tests, its implementation, its review
+findings and its gate output, in that order.
 
 ## How it was built
 

@@ -133,5 +133,14 @@ issuance and tenant isolation — the three tickets whose evidence a reviewer wo
   cross-references — and it failed immediately on a link written minutes earlier. That is the
   pattern this whole project is about, and it kept being true right up to the last commit: the
   defect was not in the code anyone was reviewing.
+- **git cannot say WHICH agent made a change.** Every commit here carries the same
+  `Co-Authored-By` line and the same committer, so the history distinguishes *agent from human*
+  and nothing finer. Which session wrote a given commit is recoverable only from its branch and
+  worktree. This stopped being academic: the round-two reviewer reported that the fix session had
+  merged to `main` against its brief, having inferred the author from `main` moving while that
+  session was working. It had not — the main session merged, at my request — and the reviewer
+  corrected itself once told. An inference presented as a measurement is the one failure this
+  whole document is about, and it happened in the reporting *about* the pipeline rather than in
+  the pipeline.
 - **One day.** The gates are real and tested; the product is a vertical slice. Everything in
   [docs/tech-debt.md](../tech-debt.md) is deliberate and written down rather than discovered.

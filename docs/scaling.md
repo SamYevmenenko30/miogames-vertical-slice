@@ -55,6 +55,27 @@ an operator's name appears outside the integration module, and the boundary lint
 module reaches past another's facade. Both gates caught a real violation in MIO-010, from
 opposite ends, when the reward adapters were first put in the wrong module.
 
+**Measured, not asserted.** Before submitting this, I onboarded a third operator to find out what
+the claim costs — deliberately unlike the other two: nested objects rather than flat or enveloped,
+a unix timestamp in seconds rather than ISO, its own event vocabulary, and an outbound API that
+PUTs and reports success in a `state` field. The result, on branch `rehearsal/operator-c`:
+
+| | |
+| --- | --- |
+| Files touched | **6** — two new adapters, plus the registry line, the simulated operator, the seed tenant row, and one branch in the smoke harness |
+| Files touched in `gamification`, `ledger`, `rewards`, `ingestion` | **0** |
+| Part B flow | ran end to end for operator C on the first attempt — the smoke run went from 14 asserted steps to 21, including the duplicate-delivery replays |
+
+The branch is kept unmerged, because the assignment asks for two operators and a
+third would mean rewriting prose that correctly says "two". What it buys is that
+the paragraph above is a measurement rather than a design intention.
+
+It also found a defect, which is why rehearsing beats believing: the guard that keeps operator
+names out of the core greps for `casino-(a|b)` — keyed to the operators that exist rather than to
+the rule — so operator C's name could have leaked anywhere with the test still green. Fixed on
+`main`; it is the third instance of that class in this repository, after the row-level-security
+policy census and `arch-check`'s event census.
+
 **At around five operators**, the adapters start to look like each other, and the right move is
 to notice *which parts* vary. On the evidence of two, the variation is: field names and nesting,
 money units (major-unit decimal strings versus minor-unit integers), the event-type vocabulary,

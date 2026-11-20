@@ -18,7 +18,13 @@ const scan = (): string[] => {
       // No `\b`: git grep's -E engine does not implement it, and the pattern then
       // matches nothing at all — which is how BOTH assertions below passed while
       // proving nothing. The presence assertion is what caught that.
-      ['grep', '-l', '--untracked', '-E', 'casino-(a|b)', '--', 'src', 'db'],
+      // `casino-[a-z0-9-]+`, not `casino-(a|b)`: a guard keyed to the operators
+      // that exist today says nothing about the next one. A rehearsal that
+      // onboarded operator C found this test green while C's name was free to
+      // leak anywhere — the third time this repository has written a check
+      // against its instances rather than against its rule (round one found it
+      // in the RLS policy census, round two in arch-check's event census).
+      ['grep', '-l', '--untracked', '-E', 'casino-[a-z0-9-]+', '--', 'src', 'db'],
       { encoding: 'utf8', cwd: process.cwd() },
     );
     return out.split('\n').filter(Boolean);
