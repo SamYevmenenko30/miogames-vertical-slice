@@ -12,7 +12,9 @@ export type NewTenant = {
 export interface TenantRepositoryPort {
   /** Create a tenant with its first API key. Used by the seed and by onboarding. */
   provisionTenant(tenant: NewTenant): Promise<Tenant>;
-  findByKeyId(keyId: string): Promise<{ tenant: Tenant; secretDigest: string; active: boolean } | null>;
+  findByKeyId(
+    keyId: string,
+  ): Promise<{ tenant: Tenant; secretDigest: string; secretEncrypted: string | null; active: boolean } | null>;
   deactivateKey(keyId: string): Promise<void>;
   findById(tenantId: string): Promise<Tenant | null>;
   authenticatedOperatorOf(tenant: Tenant, keyId: string): AuthenticatedOperator;

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { sha256Hex } from '../../../../platform/crypto/crypto';
+import { encryptSecret, sha256Hex } from '../../../../platform/crypto/crypto';
 import type { UnitOfWork } from '../../../../platform/db/unit-of-work';
+
 import type { NewTenant, TenantRepositoryPort } from '../../application/ports';
 import type { AuthenticatedOperator, Tenant } from '../../domain/tenant';
 import { tenant, tenantApiKey } from './identity.schema';
@@ -11,7 +12,11 @@ import { tenant, tenantApiKey } from './identity.schema';
  * establishes the tenant in the first place.
  */
 export class TenantRepository implements TenantRepositoryPort {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    /** Derived from the platform secret; see platform/crypto.deriveKey. */
+    private readonly encryptionKey: Buffer = Buffer.alloc(32),
+  ) {}
 
   async provisionTenant(input: NewTenant): Promise<Tenant> {
     const [row] = await this.uow.tx
@@ -21,15 +26,27 @@ export class TenantRepository implements TenantRepositoryPort {
       .returning();
     await this.uow.tx
       .insert(tenantApiKey)
-      .values({ keyId: input.keyId, tenantId: input.id, secretDigest: sha256Hex(input.secret), active: true })
+      .values({
+        keyId: input.keyId,
+        tenantId: input.id,
+        secretDigest: sha256Hex(input.secret),
+        secretEncrypted: encryptSecret(input.secret, this.encryptionKey),
+        active: true,
+      })
       .onConflictDoUpdate({
         target: tenantApiKey.keyId,
-        set: { secretDigest: sha256Hex(input.secret), active: true },
+        set: {
+          secretDigest: sha256Hex(input.secret),
+          secretEncrypted: encryptSecret(input.secret, this.encryptionKey),
+          active: true,
+        },
       });
     return toTenant(row!);
   }
 
-  async findByKeyId(keyId: string): Promise<{ tenant: Tenant; secretDigest: string; active: boolean } | null> {
+  async findByKeyId(
+    keyId: string,
+  ): Promise<{ tenant: Tenant; secretDigest: string; secretEncrypted: string | null; active: boolean } | null> {
     const rows = await this.uow.tx
       .select({ tenant, key: tenantApiKey })
       .from(tenantApiKey)
@@ -38,7 +55,12 @@ export class TenantRepository implements TenantRepositoryPort {
       .limit(1);
     const row = rows[0];
     if (!row) return null;
-    return { tenant: toTenant(row.tenant), secretDigest: row.key.secretDigest, active: row.key.active };
+    return {
+      tenant: toTenant(row.tenant),
+      secretDigest: row.key.secretDigest,
+      secretEncrypted: row.key.secretEncrypted,
+      active: row.key.active,
+    };
   }
 
   async deactivateKey(keyId: string): Promise<void> {
