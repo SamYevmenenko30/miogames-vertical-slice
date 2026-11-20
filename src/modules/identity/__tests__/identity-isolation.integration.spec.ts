@@ -25,8 +25,8 @@ beforeAll(async () => {
 
   await uow.withTransaction(async () => {
     const tenants = new TenantRepository(uow);
-    await tenants.createForTests({ id: 'tenant-a', name: 'A', operator: 'casino-a', keyId: 'key-a', secret: 'secret-a' });
-    await tenants.createForTests({ id: 'tenant-b', name: 'B', operator: 'casino-b', keyId: 'key-b', secret: 'secret-b' });
+    await tenants.provisionTenant({ id: 'tenant-a', name: 'A', operator: 'casino-a', keyId: 'key-a', secret: 'secret-a' });
+    await tenants.provisionTenant({ id: 'tenant-b', name: 'B', operator: 'casino-b', keyId: 'key-b', secret: 'secret-b' });
   });
   playerInA = await withTenant('tenant-a', async () => identity.ensurePlayer('player-in-a'));
 });

@@ -16,7 +16,7 @@ let identity: IdentityFacade;
 
 const seedTenant = async (id: string, keyId: string, secret: string) => {
   await uow.withTransaction(async () =>
-    new TenantRepository(uow).createForTests({
+    new TenantRepository(uow).provisionTenant({
       id,
       name: id,
       operator: id === 'tenant-a' ? 'casino-a' : 'casino-b',
