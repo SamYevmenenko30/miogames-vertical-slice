@@ -5,6 +5,7 @@ import { APP_CONFIG, loadConfig, type AppConfig } from '../platform/config/confi
 import { CLOCK, FixedClock } from '../platform/clock/clock';
 import { ProblemJsonFilter } from '../platform/http/problem-json.filter';
 import { rawBodyJson } from '../platform/http/raw-body';
+import { requestContext } from '../platform/observability/request-context.middleware';
 import { hmacHex } from '../platform/crypto/crypto';
 import { createTestDb, type TestDb } from './db.helper';
 
@@ -40,6 +41,7 @@ export async function startTestApi(label: string, overrides: Record<string, stri
     .compile();
 
   const app = moduleRef.createNestApplication({ bodyParser: false });
+  app.use(requestContext());
   app.use(rawBodyJson());
   app.useGlobalFilters(new ProblemJsonFilter());
   await app.init();

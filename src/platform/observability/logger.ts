@@ -40,17 +40,36 @@ export function newTraceId(): string {
   return randomUUID();
 }
 
-export function createLogger(level: string): Logger {
-  const root = pino({
+export type LoggerSink = { write(line: string): void };
+
+export function createLogger(level: string, sink?: LoggerSink): Logger {
+  const root = pino(
+    {
     level,
     // Context is attached at log time, not at child-creation time, so a line
     // written deep inside a use-case still carries the request's trace id.
     mixin: () => ({ ...(contextStore.getStore() ?? {}) }),
     redact: {
-      paths: ['secret', 'apiKey', 'signature', '*.secret', '*.apiKey', 'authorization', 'req.headers.authorization'],
+      paths: [
+        'secret',
+        'apiKey',
+        'signature',
+        'authorization',
+        'token',
+        'password',
+        '*.secret',
+        '*.apiKey',
+        '*.signature',
+        '*.token',
+        'req.headers.authorization',
+      ],
       censor: '[redacted]',
     },
-  });
+    },
+    // A sink only for the tests that assert what a line contains. Production
+    // writes to stdout, which is what a log shipper reads.
+    sink ? { write: (line: string) => sink.write(line) } : undefined,
+  );
   return root as unknown as Logger;
 }
 
