@@ -297,6 +297,26 @@ const probes = [
     },
   },
   {
+    name: 'red-check/a-missing-table-is-crash-red-not-a-missing-environment',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // A test whose setup touches a table the branch adds must come out crash-red.
+    // Classifying that as "the environment was missing" fails a correct ticket
+    // closed, which is exactly what the first version of the classifier did.
+    expectPass: true,
+    expect: /crash-red/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-missing-table.integration.spec.ts',
+        `import { beforeAll, expect, it } from 'vitest';\nimport { createTestDb } from './test/db.helper';\n\n` +
+        `let sql: Awaited<ReturnType<typeof createTestDb>>;\n` +
+        `beforeAll(async () => { sql = await createTestDb('probe-missing'); await sql.sql\`select 1 from probe_absent\`; });\n` +
+        `it('S1 — probe', () => { expect(1).toBe(1); });\n`);
+      commit('test: a spec whose setup needs a table the branch adds\n');
+      return base;
+    },
+  },
+  {
     name: 'red-check/requires-the-tests-phase-to-add-a-test',
     gate: ['node', ['scripts/red-check.mjs', '--require-tests']],
     // Base == HEAD, so the branch adds nothing: the tests phase must not be able
@@ -379,6 +399,22 @@ for (const probe of selected) {
   const env = probe.expectEnv ? probe.expectEnv(planted) : {};
   const res = trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0', ...env }, timeout: 300_000 });
 
+  // A few probes assert the opposite: the gate must ACCEPT the planted state, and
+  // say the right thing about it. That is how a classifier is kept honest — the
+  // bug it guards against is a correct ticket failed closed, not one let through.
+  if (probe.expectPass) {
+    if (!res.ok) {
+      failures.push(`${probe.name}: the gate REJECTED a state it should accept.\n${indent(res.out)}`);
+      console.log(`✗  ${probe.name}  (gate went red)`);
+    } else if (!probe.expect.test(res.out ?? '')) {
+      failures.push(`${probe.name}: the gate passed, but did not say ${probe.expect}.\n${indent(res.out)}`);
+      console.log(`✗  ${probe.name}  (wrong verdict)`);
+    } else {
+      console.log(`✓  ${probe.name}`);
+    }
+    continue;
+  }
+
   if (res.ok) {
     failures.push(`${probe.name}: the gate PASSED on a planted violation. The gate is not doing its job.\n${indent(res.out)}`);
     console.log(`✗  ${probe.name}  (gate stayed green)`);
@@ -401,4 +437,7 @@ if (failures.length) {
   console.log(`gate-probes: FAIL — ${failures.length} of ${selected.length} probe(s)`);
   process.exit(1);
 }
-console.log(`gate-probes: PASS — all ${selected.length} gates fail on a planted violation, and pass without one.`);
+console.log(
+  `gate-probes: PASS — all ${selected.length} probes behaved: each gate goes red on its planted violation ` +
+    'and green without one, and the classifier probes accept what they should.',
+);

@@ -11,7 +11,7 @@ const slices = [
   { id: 'jackpot', weight: 20, prize: { kind: 'free_spins', count: 10 } },
 ];
 
-const put = (wheelId: string, body: unknown, key = 'key-a.secret-a') =>
+const put = (wheelId: string, body: object, key = 'key-a.secret-a') =>
   request(api.app.getHttpServer())
     .put(`/v1/admin/wheels/${wheelId}`)
     .set('authorization', `Bearer ${key}`)
@@ -34,7 +34,10 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await api.db.sql`truncate gamification.wheel_version, gamification.wheel cascade`;
-  await api.db.sql`delete from infra.audit_log where true or true`.catch(() => undefined);
+  // TRUNCATE, not DELETE: infra.audit_log is append-only and the trigger refuses
+  // a DELETE. The real production control is that the application role holds no
+  // TRUNCATE privilege — see TD-0010 and MIO-011.
+  await api.db.sql`truncate infra.audit_log`;
 });
 
 describe('gamification — wheel configuration', () => {
@@ -73,7 +76,7 @@ describe('gamification — wheel configuration', () => {
   });
 
   it('S4 — each kind of invalid configuration is refused, and creates no version', async () => {
-    const bad: Array<[string, unknown, RegExp]> = [
+    const bad: Array<[string, object, RegExp]> = [
       ['one slice', { name: 'w', slices: [slices[0]] }, /two/i],
       ['zero weight', { name: 'w', slices: [{ ...slices[0], weight: 0 }, slices[1]] }, /weight/i],
       ['fractional weight', { name: 'w', slices: [{ ...slices[0], weight: 1.5 }, slices[1]] }, /integer/i],

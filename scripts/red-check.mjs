@@ -121,15 +121,29 @@ function stage(path) {
 }
 
 function classify(status, out) {
-  const env = /ECONNREFUSED|ENOTFOUND|getaddrinfo|does not exist|password authentication failed|Connection terminated/i;
+  // Narrow on purpose. "relation ... does not exist" means the BRANCH adds that
+  // table, which is crash-red and a legitimate verdict; only a missing server,
+  // database or credential is an environment problem. The first version of this
+  // pattern matched both and failed a correct ticket closed.
+  const env =
+    /ECONNREFUSED|ENOTFOUND|getaddrinfo|password authentication failed|Connection terminated|database "[^"]+" does not exist|role "[^"]+" does not exist/i;
   const noTests = /No test files found|No test suite found|includes no tests/i;
   const assertion = /AssertionError|expected .* to |toBe|toEqual|toThrow|Snapshot .* mismatched|assert/i;
-  const crash = /Cannot find module|Failed to resolve import|SyntaxError|is not a function|is not defined|TypeError|ReferenceError/i;
+  const crash =
+    /Cannot find module|Failed to resolve import|SyntaxError|is not a function|is not defined|TypeError|ReferenceError|relation "[^"]+" does not exist|schema "[^"]+" does not exist|column "[^"]+" does not exist/i;
   if (status === 0) return { verdict: 'GREEN' };
   if (noTests.test(out)) return { verdict: 'cannot verify', why: 'vitest found no test in the file' };
   if (env.test(out)) return { verdict: 'cannot verify', why: 'the environment was missing (Postgres?) — start it and re-run' };
+  // Unambiguous signals first. A missing module, schema, table or column means
+  // the file could not reach its assertions at all — and vitest prints the code
+  // frame of the failing test, so the assertion pattern below matches `toBe(…)`
+  // from the SOURCE and would otherwise claim a stronger verdict than the run
+  // earned. (That is exactly what it did until a probe asserted the classifier.)
+  const hardCrash =
+    /Cannot find module|Failed to resolve import|relation "[^"]+" does not exist|schema "[^"]+" does not exist|column "[^"]+" does not exist/i;
+  if (hardCrash.test(out)) return { verdict: 'crash-red', why: out.match(hardCrash)?.[0] };
   // A failed assertion inside a test body is the strong result; prefer it over a
-  // crash match, because a crash string can also appear in an assertion diff.
+  // softer crash match, because a crash string can also appear in an assertion diff.
   if (/\d+ failed/.test(out) && assertion.test(out) && !/Unhandled Error/.test(out)) return { verdict: 'assertion-red' };
   if (crash.test(out)) return { verdict: 'crash-red', why: out.match(crash)?.[0] };
   if (/failed/i.test(out)) return { verdict: 'assertion-red' };
