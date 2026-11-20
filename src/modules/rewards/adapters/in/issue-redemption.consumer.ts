@@ -1,5 +1,4 @@
 import { REWARDS_REDEMPTION_REQUESTED, rewardsRedemptionRequestedSchema } from '../../../../contracts/events';
-import { withTenant } from '../../../../platform/db/tenant-context';
 import type { UnitOfWork } from '../../../../platform/db/unit-of-work';
 import { IdempotentConsumer, type DeliveredEvent } from '../../../../platform/events/idempotent-consumer';
 import type { IssueRewardUseCase } from '../../application/issue-reward.usecase';
@@ -28,6 +27,7 @@ export class IssueRedemptionConsumer extends IdempotentConsumer {
     if (!parsed.success) {
       throw new Error(`rewards.redemption.requested payload does not match its schema: ${parsed.error.message}`);
     }
-    await withTenant(event.tenantId, async () => this.issue.execute(parsed.data.redemptionId));
+    // Already inside the event's tenant scope (the base class entered it).
+    await this.issue.execute(parsed.data.redemptionId);
   }
 }

@@ -22,7 +22,11 @@ export async function startTestApi(label: string, overrides: Record<string, stri
   const clock = new FixedClock(new Date('2026-11-20T12:00:00.000Z'));
   const config = loadConfig({
     NODE_ENV: 'test',
-    DATABASE_URL: db.url,
+    // The APPLICATION role, so every test in this suite runs with row-level
+    // security in force — which is what makes MIO-011's own assertions more than
+    // a laboratory result.
+    DATABASE_URL: db.appUrl,
+    DATABASE_OWNER_URL: db.url,
     PLAYER_TOKEN_SECRET: 'platform-player-token-secret-32ch',
     LOG_LEVEL: 'silent',
     ...overrides,

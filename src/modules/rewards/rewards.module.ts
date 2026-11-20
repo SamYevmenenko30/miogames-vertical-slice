@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../platform/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../../platform/config/config';
 import { LOGGER, type Logger } from '../../platform/observability/logger';
-import { UnitOfWork } from '../../platform/db/unit-of-work';
+import { JobUnitOfWork, UnitOfWork } from '../../platform/db/unit-of-work';
 import { EVENT_BUS, type EventBusPort } from '../../platform/events/outbox';
 import { IdentityFacade } from '../identity';
 import { IdentityModule } from '../identity/identity.module';
@@ -18,6 +18,9 @@ import { RedemptionRepository } from './adapters/out/redemption.repository';
 import { StoreRepository } from './adapters/out/store.repository';
 import { RedeemUseCase } from './application/redeem.usecase';
 import { RewardsFacade } from './application/rewards.facade';
+
+/** The redemption repository on the owner connection, for the cross-tenant sweep. */
+export const JOB_REDEMPTION_REPOSITORY = Symbol('JobRedemptionRepository');
 
 @Module({
   imports: [IdentityModule, LedgerModule, IntegrationModule],
@@ -83,10 +86,18 @@ import { RewardsFacade } from './application/rewards.facade';
       useFactory: (uow: UnitOfWork, issue: IssueRewardUseCase) => new IssueRedemptionConsumer(uow, issue),
     },
     {
+      // The same repository, bound to the OWNER unit of work. The sweep's query
+      // is a repository method like any other — it just runs on the connection
+      // that is allowed to look across tenants.
+      provide: JOB_REDEMPTION_REPOSITORY,
+      inject: [JobUnitOfWork],
+      useFactory: (uow: JobUnitOfWork) => new RedemptionRepository(uow),
+    },
+    {
       provide: IssuanceWorker,
-      inject: [UnitOfWork, RedemptionRepository, IssueRewardUseCase, CLOCK, LOGGER],
+      inject: [JobUnitOfWork, JOB_REDEMPTION_REPOSITORY, IssueRewardUseCase, CLOCK, LOGGER],
       useFactory: (
-        uow: UnitOfWork,
+        uow: JobUnitOfWork,
         redemptions: RedemptionRepository,
         issue: IssueRewardUseCase,
         clock: Clock,

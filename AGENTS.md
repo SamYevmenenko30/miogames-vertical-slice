@@ -106,6 +106,16 @@ scripts/                 the gates
 - `red-check` borrows `node_modules` from the current tree, so a test that reaches outside its
   own worktree can contaminate the measurement. Keep test fixtures inside the test file's own
   directory.
+- **The tenant must be in context before the transaction opens.** The unit of work issues
+  `SET LOCAL app.tenant_id` at `BEGIN`; entering the scope inside the transaction leaves the
+  database without a tenant and every scoped query returns nothing while looking correct.
+- **`current_setting('app.tenant_id', true)` is `''`, not NULL, after the first use on a
+  connection.** RLS policies must normalise with `nullif(..., '')` or they refuse everything from
+  the second pooled request onwards.
+- **`tsx` cannot run this application.** esbuild does not emit decorator metadata, so Nest
+  resolves a controller's first constructor parameter as `undefined` — the error names no
+  parameter and reads like a missing provider. `pnpm dev` uses `@swc-node/register`; the test
+  suite uses the same swc transform through `unplugin-swc`.
 - `postgres.js` raw-`sql` parameters must be **strings**, not `Date`s. Under vitest a `Date`
   parameter reaches `Buffer.byteLength` and throws `ERR_INVALID_ARG_TYPE` even though
   `instanceof Date` is true; the same code works under `tsx`. Pass `.toISOString()` with an

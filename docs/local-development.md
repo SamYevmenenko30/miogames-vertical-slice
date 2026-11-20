@@ -44,8 +44,21 @@ that look like application bugs for hours. Cleaning happens on the way *in*, not
 
 ## Row-level security
 
-The unit-of-work issues `SET LOCAL app.tenant_id` per transaction, and the tenant-owned tables
-carry RLS policies against it. Migrations and the seed run as the table owner (which bypasses
-RLS); the application connects as a non-owner role, so a query that escapes `scoped()` returns
-nothing instead of another tenant's rows. If a test suddenly sees zero rows it should see, check
-that it opened a transaction — outside one, there is no `app.tenant_id`.
+The unit of work issues `SET LOCAL app.tenant_id` per transaction, and the tenant-owned tables
+carry policies against it. Migrations and the seed run as the owner (`DATABASE_OWNER_URL`), which
+bypasses RLS; the application connects as `mio_app`, so a query that escapes `scopedWhere`
+returns nothing instead of another tenant's rows.
+
+Two things to know before this costs you an hour:
+
+- **The tenant must be in context BEFORE the transaction opens.** `SET LOCAL` happens at `BEGIN`;
+  entering the tenant scope inside the transaction leaves the database without a tenant for the
+  whole of it, and every scoped query returns zero rows while looking perfectly correct. That is
+  a real bug this repository had, in the event consumers, and RLS is what exposed it.
+- **`current_setting('app.tenant_id', true)` returns the EMPTY STRING, not NULL, once the setting
+  has been touched on that connection.** On a pooled connection the first request sees NULL and
+  every later one sees `''`. The policies normalise with `nullif(..., '')`; a policy written
+  against NULL alone starts refusing everything after the first request, including the credential
+  lookup that precedes any tenant.
+
+If a test suddenly sees zero rows it should see, check both of those before suspecting the query.
