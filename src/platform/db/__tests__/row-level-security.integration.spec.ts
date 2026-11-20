@@ -18,6 +18,11 @@ const asTenant = async <T>(tenantId: string | null, fn: (tx: postgres.Transactio
 
 beforeAll(async () => {
   testDb = await createTestDb('row-level-security');
+  // State the dependency instead of tripping over it: without an application-role
+  // URL, `postgres(undefined)` degrades into a connection error, and red-check
+  // rightly refuses to call that "red" — it cannot tell a missing feature from a
+  // missing database.
+  expect(typeof testDb.appUrl, 'the test helper must expose an application-role URL').toBe('string');
   app = postgres(testDb.appUrl, { max: 2, onnotice: () => {} });
 
   // Seeded as the OWNER, which bypasses the policies — that is what makes the
