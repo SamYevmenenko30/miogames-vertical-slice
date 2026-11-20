@@ -1,13 +1,13 @@
 ---
 id: MIO-004
 title: "ingestion: HMAC authentication, validation, deduplication, envelope audit, one event"
-column: 1-in-spec
+column: 2-in-tests
 type: feature
 module: ingestion
 part: "B, C"
 depends_on: [MIO-002, MIO-003]
 spec: docs/specs/MIO-004.md
-gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
 ---
 # MIO-004 — ingestion: HMAC authentication, validation, deduplication, envelope audit, one event
 
@@ -31,7 +31,7 @@ Step 1 and 2 of Part B, and the first two Part C cases (duplicate events, unauth
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 9 statements, 2 questions |
-| tests-from-spec | — | `red-check` | — |
+| tests-from-spec | 2026-11-20 | `red-check` | PASS — 2 files red at the merge-base |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
 
