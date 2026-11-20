@@ -1,13 +1,13 @@
 ---
 id: MIO-010
 title: "rewards: issuance through the operator adapter, with timeouts, retries, refunds and a status API"
-column: 0-backlog
+column: 1-in-spec
 type: feature
 module: rewards
 part: "B, C"
 depends_on: [MIO-009, MIO-003]
 spec: docs/specs/MIO-010.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-010 — rewards: issuance through the operator adapter, with timeouts, retries, refunds and a status API
 
@@ -31,7 +31,7 @@ Steps 7 and 8 of Part B and four Part C cases at once: timeouts, failed issuance
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 10 statements, 2 questions |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
