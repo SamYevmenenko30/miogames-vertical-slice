@@ -28,6 +28,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm arch-check
       - run: pnpm board:check
+      # Round two's S14: this was in `verify` and not in CI, so a broken
+      # cross-reference could reach main through a push that never ran it.
+      - run: pnpm docs-links
       - run: pnpm spec-gate
       - run: pnpm test-guard
       - run: pnpm build

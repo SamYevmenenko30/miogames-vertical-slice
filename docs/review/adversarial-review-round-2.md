@@ -467,7 +467,7 @@ at the operator call."* No grant is ever requested. The case the table describes
 the call and the recording — is the dangerous half, is the one that duplicates a grant (R2-B1), and
 has no test. Two states that need different answers are being proved by the same test name.
 
-### S14 — `docs-links` is in `verify` but not in CI
+### S14 — `docs-links` is in `verify` but not in CI *(closed: it is in the `gates` job now)*
 
 `.github/workflows/ci.yml` runs lint, typecheck, arch-check, board:check, spec-gate, test-guard and
 build in the `gates` job. `pnpm docs-links` is one of `verify`'s eleven gates and is absent, so the
