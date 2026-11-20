@@ -18,7 +18,9 @@ cannot), and a data engineer (the events are already published; analytics is a c
 is a month-seven conversation).
 
 **With AI assistance throughout**, which is the honest caveat on "four": this slice — six modules,
-221 tests, ten gates, the documents — was built by one person and an agent in a day. The four are
+221 tests, ten gates, the documents — was built by one person and an agent in a day. The gates
+are not a one-day artefact themselves: they are a distillation of the same pipeline after four
+months of daily use by a team of six, which is also the size at which it is measured. The four are
 not four pairs of hands; they are four people who can each *decide*, with an agent doing the
 typing. The constraint that does not change is review capacity: somebody has to understand every
 boundary and every money path, and that does not parallelise.

@@ -9,8 +9,10 @@ Two simulated operators with **genuinely different schemas on both sides** drive
 gamification logic. A third was onboarded as a rehearsal, to measure what that claim costs: six
 files, none of them in the core ([scaling.md §2](docs/scaling.md)).
 
-The process around this — the specs, the board, the ten gates — is one card of sixteen. The other
-fifteen are the product.
+The process around this — the specs, the board, the ten gates — is one card of sixteen; the other
+fifteen are the product. It is a distillation, not an invention for this exercise: the same
+pipeline has been in daily use for four months by a team of six on a live product
+([Part D](docs/ai/how-ai-was-used.md)).
 
 ```bash
 nvm use && pnpm install

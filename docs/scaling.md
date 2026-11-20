@@ -146,7 +146,9 @@ the operator dialects. An agent is very good at all of it. The caveat from doing
 *equally* fluent when it is wrong, and a confident wrong answer costs more than a slow right one.
 
 **Automate the verification: this is where the leverage is, and it is the half most teams skip.**
-Each of these replaced a control a solo build does not have:
+Each of these replaced a human control that does not scale — on a team of six it is the review
+bottleneck, on a one-author build it is absent altogether. They were earned on the former and
+they are what makes the latter possible:
 
 - `red-check` — every added test must fail at the merge-base, each file alone in a clean
   worktree. This is the single highest-value gate in the repository, because a test written by

@@ -9,6 +9,11 @@ judge about a pipeline is not what it catches, but what it is structurally unabl
 All three are about the same blind spot. The gates here prove that a test **depends on** the
 branch's code. None of them proves that the test **means** what its specification says it means.
 
+They are also not *this slice's* gaps. The pipeline this repository distils has been run for four
+months by a team of six, and the same three are open there: the first two specified and costed in
+that codebase's own pipeline specs, the third designed and never run. A one-day rebuild does not
+get to discover them — it gets to inherit them, say so, and price them.
+
 | Gap | What the gates cannot see | Designed answer | Cost |
 | --- | --- | --- | --- |
 | 1 | A test can cite `S14` and assert nothing about `S14` | Per-case red-on-base, defect-class mutants, then a specification audit | 2–3 days for the first layer, a fortnight for the second |
@@ -97,8 +102,9 @@ its false-positive rate has been measured over a few dozen pull requests.
 
 Layers 1 and 2 are each larger than any single card on this board, and layer 2's harness — clone
 and database per mutant — is the same infrastructure a controlled-interleaving test runner needs,
-which makes it a project rather than a task. In a one-day slice with 147 assertions and one
-author, the adversarial review sessions were the cheaper instrument, and they worked: the sharpest
+which makes it a project rather than a task — and it is not built in the six-person version of
+this pipeline either, where it is specified and queued behind shipping work. Over a one-day slice
+the adversarial review sessions were the cheaper instrument, and they worked: the sharpest
 finding in this repository (two money defects introduced *by the first round's fixes*) came from a
 review, not a gate. That is a true result and a fragile one — it is a measurement of attention,
 and attention does not scale, which is the whole argument for layers 1 and 2.
@@ -149,9 +155,11 @@ the assertion that moved still has its test.
 
 ### Why it is not here
 
-A one-day slice with one author and 147 assertions is exactly the regime where the map loses to
-memory. The decision not to build it is in the open; the decision not to *know* that it is missing
-would not have been.
+A one-day slice of 147 assertions is exactly the regime where the map loses to memory — one
+revision each, nothing renumbered, everything still in the author's head. It stops being true at
+the fourth revision, which is why the larger pipeline has the presence half of this specified. The
+decision not to build it here is in the open; the decision not to *know* that it is missing would
+not have been.
 
 ---
 

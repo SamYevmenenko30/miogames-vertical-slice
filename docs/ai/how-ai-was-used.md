@@ -7,6 +7,15 @@ process — with the measurements it rests on, and the cost it carries.
 The mechanics of the pipeline are in [docs/process.md](../process.md); the defects it caught are
 in [evidence-log.md](evidence-log.md). This page is the *why*.
 
+**Where the process comes from.** It was not invented for this exercise. The pipeline this
+repository runs — spec-first phases in separate sessions, a red-on-base gate, a declaration gate
+on edited tests, probes that test the gates themselves, review as a session that never sees the
+implementing conversation — has been in daily use for four months by a **team of six** on a live
+multi-market product, and every gate in it exists because something real got through while it was
+missing. What is new here is the distillation: the same machinery rebuilt for one repository, one
+author and one day, small enough that a reviewer can read all of it. The measurements in this
+document are this slice's own; the reason each gate exists is four months older than this slice.
+
 ---
 
 ## The tooling, concretely
@@ -138,15 +147,21 @@ attention span — but the honest accounting is:
 
 ## What I would keep, and what I would drop
 
+The anchor is the middle of this range, because it is the measured one: at **six**, in daily
+use, this process keeps everything described here and adds two things the slice does not have — a
+branch audit that reads a branch's prose against its own diff, and a merge gate that requires a
+reviewer's posted artefact rather than an approval click.
+
 At **four engineers**: keep `red-check`, the boundary lint, `spec-gate`'s open questions, and
 `gate-probes`. Keep review as a separate session from implementation. Drop the three-session split
 per ticket (spec and tests can share a session if the human answers the questions), drop the
 per-ticket gate-run archiving, drop the board-as-folders in favour of the team's real tracker.
 
-At **forty**: all of the above, plus the thing this slice does not have and names as missing — a
-branch audit that reads a branch's prose against its diff. Two module documents contradicted each
-other here about an idempotency idiom, and nothing caught it; I did, by chance, which is precisely
-the mechanism this project distrusts.
+At **forty**: all of the above, plus the branch audit — two module documents contradicted each
+other here about an idempotency idiom, nothing caught it, and I did, by chance, which is precisely
+the mechanism this project distrusts — plus the two gaps that are open in the six-person version
+as well, specified rather than built: per-case red-on-base and defect-class mutants, costed in
+[known-gaps.md](../known-gaps.md).
 
 ## Honest limits of this evidence
 
