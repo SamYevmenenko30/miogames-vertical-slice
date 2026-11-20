@@ -1,13 +1,13 @@
 ---
 id: MIO-012
 title: "Observability and auditability: request context, structured logs, append-only audit"
-column: 1-in-spec
+column: 2-in-tests
 type: feature
 module: platform
 part: "A"
 depends_on: [MIO-010]
 spec: docs/specs/MIO-012.md
-gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
 ---
 # MIO-012 — Observability and auditability: request context, structured logs, append-only audit
 
@@ -31,7 +31,7 @@ In a money-shaped system "what happened to this redemption" has to be answerable
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 6 statements, 2 questions |
-| tests-from-spec | — | `red-check` | — |
+| tests-from-spec | 2026-11-20 | `red-check` | PASS |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
 
