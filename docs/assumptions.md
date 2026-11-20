@@ -15,8 +15,11 @@ expensive kind.
   never negative — because they are exchanged for things that cost the operator money.
 - **Reward issuance is at-least-once with an idempotency contract on the operator's side.** We
   send `Idempotency-Key`; we cannot enforce that they honour it. If they do not, a retried
-  issuance may grant twice on their side — which is why the retry is bounded, every attempt is
-  recorded, and the status API shows exactly what we sent and when.
+  issuance may grant twice on their side — which is why the retry is bounded, every grant we
+  REQUEST is recorded before we make the call, and the status API shows exactly what we sent and
+  when. The recording was the half that did not exist: a worker killed after the operator granted
+  came back as a clean first-attempt success, so the one attempt nobody could account for was the
+  one nothing had written down. `grant_requests > 1` is now the list to reconcile (TD-0011).
 - **A deposit grants spins by tier**, the highest matching threshold only, decided by the product
   owner (Sam, 2026-11-20). An unused spin lives seven days.
 - **A failed issuance refunds in full** (same decision), so a player never pays for our failure or

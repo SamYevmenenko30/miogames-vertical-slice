@@ -80,14 +80,22 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
    * for the same reason the outbox relay does it: deciding that another process
    * is dead needs the one clock every process shares. The retry SCHEDULE still
    * comes from the injected clock — see `dueForRetry`.
+   *
+   * The claim is also the RECORD that the operator is about to be asked:
+   * `grant_requests` is incremented here, in the transaction that commits before
+   * the call goes out, so an attempt lost to a dying process is still counted.
+   * `claim` is unique per claim, not per process, and the three write-backs
+   * require it — see `markIssued`.
    */
-  async claimForIssuance(id: string, now: Date, claimedBy: string, leaseMs: number): Promise<Redemption | null> {
+  async claimForIssuance(id: string, now: Date, claim: string, leaseMs: number): Promise<Redemption | null> {
     const tenantId = currentTenantId();
     const rows = await this.uow.tx.execute<RedemptionRow>(sql`
       update rewards.redemption
          set status = 'issuing',
              claimed_at = now(),
-             claimed_by = ${claimedBy},
+             claimed_by = ${claim},
+             grant_requests = grant_requests + 1,
+             grant_requested_at = now(),
              updated_at = ${now.toISOString()}::timestamptz
        where tenant_id = ${tenantId}
          and id = ${id}
@@ -99,7 +107,8 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
            )
          )
       returning id, tenant_id, player_id, item_id, price, reward, status, idempotency_key,
-                attempts, last_error, external_ref, created_at, updated_at
+                attempts, last_error, external_ref, grant_requests, grant_requested_at,
+                created_at, updated_at
     `);
     const row = rows[0];
     return row ? fromRow(row) : null;
@@ -126,15 +135,34 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
       );
   }
 
-  async markIssued(id: string, externalRef: string, now: Date): Promise<void> {
-    await this.uow.tx
+  /**
+   * The three write-backs below record the outcome of ONE claim, and each of them
+   * requires that claim to still be held. They return whether they matched.
+   *
+   * `claimForIssuance` was always a careful conditional UPDATE and these were
+   * keyed on `(tenant, id)` alone, which made the lease a guarantee about
+   * STARTING and no guarantee at all about FINISHING — and the finish is where
+   * the money moves. The round-two review measured both halves of the hole: a
+   * worker whose lease expired while its operator call was in flight wrote its
+   * failure back over a peer's success, so the reward was issued AND the coins
+   * refunded; and the mirror case, a `scheduleRetry` resurrecting an already
+   * issued redemption into `pending_issuance` for the sweep to grant again.
+   *
+   * `claim` must therefore be unique per CLAIM, not per process: one worker that
+   * re-claims a redemption its own earlier attempt is still inside is exactly the
+   * case that has to be refused, and two containers were measured sharing pid 25.
+   */
+  async markIssued(id: string, claim: string, externalRef: string, now: Date): Promise<boolean> {
+    const rows = await this.uow.tx
       .update(redemption)
       .set({ status: 'issued', externalRef, lastError: null, nextAttemptAt: null, claimedAt: null, claimedBy: null, updatedAt: now })
-      .where(and(scopedWhere(redemption), eq(redemption.id, id)));
+      .where(this.stillClaimed(id, claim))
+      .returning({ id: redemption.id });
+    return rows.length === 1;
   }
 
-  async scheduleRetry(id: string, attempts: number, error: string, nextAttemptAt: Date, now: Date): Promise<void> {
-    await this.uow.tx
+  async scheduleRetry(id: string, claim: string, attempts: number, error: string, nextAttemptAt: Date, now: Date): Promise<boolean> {
+    const rows = await this.uow.tx
       .update(redemption)
       .set({
         status: 'pending_issuance',
@@ -145,14 +173,33 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
         claimedBy: null,
         updatedAt: now,
       })
-      .where(and(scopedWhere(redemption), eq(redemption.id, id)));
+      .where(this.stillClaimed(id, claim))
+      .returning({ id: redemption.id });
+    return rows.length === 1;
   }
 
-  async markFailed(id: string, attempts: number, error: string, now: Date): Promise<void> {
-    await this.uow.tx
+  async markFailed(id: string, claim: string, attempts: number, error: string, now: Date): Promise<boolean> {
+    const rows = await this.uow.tx
       .update(redemption)
       .set({ status: 'failed', attempts, lastError: error.slice(0, 2000), nextAttemptAt: null, claimedAt: null, claimedBy: null, updatedAt: now })
-      .where(and(scopedWhere(redemption), eq(redemption.id, id)));
+      .where(this.stillClaimed(id, claim))
+      .returning({ id: redemption.id });
+    return rows.length === 1;
+  }
+
+  /**
+   * "This redemption, and I am still the one issuing it." Both halves matter:
+   * `claimed_by` alone would match a row a peer has already moved to `issued` and
+   * then re-claimed under the same name, and `status` alone is what the defect
+   * above had.
+   */
+  private stillClaimed(id: string, claim: string) {
+    return and(
+      scopedWhere(redemption),
+      eq(redemption.id, id),
+      eq(redemption.status, 'issuing'),
+      eq(redemption.claimedBy, claim),
+    );
   }
 
   async statusOf(id: string): Promise<RedemptionStatus | null> {
@@ -210,6 +257,8 @@ type RedemptionRow = {
   attempts: number;
   last_error: string | null;
   external_ref: string | null;
+  grant_requests: number;
+  grant_requested_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -227,6 +276,8 @@ function fromRow(row: RedemptionRow): Redemption {
     attempts: Number(row.attempts),
     lastError: row.last_error,
     externalRef: row.external_ref,
+    grantRequests: Number(row.grant_requests),
+    grantRequestedAt: row.grant_requested_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -243,6 +294,8 @@ function toRedemption(row: {
   attempts: number;
   lastError: string | null;
   externalRef: string | null;
+  grantRequests: number;
+  grantRequestedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): Redemption {
@@ -257,6 +310,8 @@ function toRedemption(row: {
     attempts: Number(row.attempts),
     lastError: row.lastError,
     externalRef: row.externalRef,
+    grantRequests: Number(row.grantRequests),
+    grantRequestedAt: row.grantRequestedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

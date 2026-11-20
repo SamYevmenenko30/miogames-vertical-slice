@@ -39,6 +39,10 @@ async function bootstrap(): Promise<void> {
     batchSize: config.outboxBatchSize,
     claimTimeoutMs: config.outboxClaimTimeoutMs,
     pollMs: config.outboxPollMs,
+    // `relay-${process.pid}` was this relay's default, and a container's pid
+    // collides across replicas — two workers were measured as pid 25, so a stuck
+    // outbox row named a worker that could have been either of them.
+    instanceId: `relay-${config.instanceId}`,
   });
   relay.start();
 

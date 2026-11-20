@@ -80,7 +80,9 @@ export const JOB_REDEMPTION_REPOSITORY = Symbol('JobRedemptionRepository');
           baseBackoffMs: config.issuanceBaseBackoffMs,
           maxBackoffMs: config.issuanceMaxBackoffMs,
           claimTimeoutMs: config.issuanceClaimTimeoutMs,
-          instanceId: `issuance-${process.pid}`,
+          // From configuration, not from the pid: a claim that cannot name the
+          // worker holding it cannot be required by a money write-back either.
+          instanceId: `issuance-${config.instanceId}`,
         }),
     },
     {

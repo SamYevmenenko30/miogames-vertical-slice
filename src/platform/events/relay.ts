@@ -57,6 +57,10 @@ export class OutboxRelay {
     this.claimTimeoutMs = options.claimTimeoutMs ?? 60_000;
     this.baseBackoffMs = options.baseBackoffMs ?? 1000;
     this.maxBackoffMs = options.maxBackoffMs ?? 300_000;
+    // A pid is not an identity in a container: two replicas were measured as pid
+    // 25, so this default cannot distinguish them and the composition root passes
+    // `config.instanceId` instead. The fallback stays for the tests that build a
+    // relay by hand, where there is exactly one.
     this.instanceId = options.instanceId ?? `relay-${process.pid}`;
   }
 

@@ -19,9 +19,18 @@ export type Redemption = {
   price: number;
   reward: RewardPayload;
   status: RedemptionStatus;
+  /** Attempts that FAILED. A redemption issued on its first call reports 0. */
   attempts: number;
   lastError: string | null;
   externalRef: string | null;
+  /**
+   * How many times a worker has claimed this redemption in order to ask the
+   * operator for the grant — recorded before the call, so an attempt lost to a
+   * dying process still counts. More than one on an `issued` redemption means the
+   * operator may have granted the reward more than once (TD-0011).
+   */
+  grantRequests: number;
+  grantRequestedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -102,6 +102,13 @@ export class RedemptionController {
         attempts: found.attempts,
         lastError: found.lastError,
         externalRef: found.externalRef,
+        // How many times a worker has asked the operator to grant this reward,
+        // and when it last did. Two on an `issued` redemption means a worker died
+        // mid-issuance and the lease recovered it — the reward may have been
+        // granted twice on the operator's side, and this is where anyone looking
+        // for that finds it (TD-0011).
+        grantRequests: found.grantRequests,
+        grantRequestedAt: found.grantRequestedAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
       };

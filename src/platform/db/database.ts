@@ -1,3 +1,5 @@
+// Type-only, so this file stays framework-free at runtime: `implements` is erased.
+import type { OnApplicationShutdown } from '@nestjs/common';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
@@ -34,4 +36,29 @@ export function createDatabase(options: { url: string; max?: number }): Database
       await sql.end({ timeout: 5 });
     },
   };
+}
+
+/**
+ * The pools, closed when the application shuts down.
+ *
+ * `DATABASE` and `OWNER_DATABASE` are factory providers returning a plain object
+ * with a `close()` method, and Nest calls lifecycle hooks on the INSTANCES it
+ * holds — a plain object with no hook on it has nothing to call, so nothing ever
+ * closed them. Two measured consequences: `pnpm db:seed` committed its work and
+ * then hung (the event loop never drained), and every `docker stop worker` took
+ * Docker's full ten-second grace period and ended in exit 137 — a SIGKILL,
+ * which is exactly the crash that leaves a redemption mid-issuance.
+ *
+ * So it is a PROVIDER, which is the thing Nest has a hook on, holding the pools
+ * it must close. `close()` stays on `Database` because a script that builds a
+ * pool without Nest still has to let go of it.
+ */
+export class DatabasePools implements OnApplicationShutdown {
+  constructor(private readonly pools: readonly Database[]) {}
+
+  async onApplicationShutdown(): Promise<void> {
+    // `allSettled`: one pool failing to drain must not strand the other open, and
+    // at this point there is nobody left to report the failure to anyway.
+    await Promise.allSettled(this.pools.map(async (pool) => pool.close()));
+  }
 }

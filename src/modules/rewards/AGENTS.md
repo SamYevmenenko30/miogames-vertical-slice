@@ -24,7 +24,20 @@ issue the reward, track the outcome, refund when issuance finally fails.
   in `issuing` by a worker that died is re-claimed by the sweep once the lease expires, and a NULL
   `claimed_at` counts as stale. Without this the redemption wedged for good: coins debited, no
   reward, no refund, and nothing looking for it — the sweep only ever read `pending_issuance`.
-  Re-attempting is safe because the operator call carries `redemption:<id>` as its idempotency key.
+- **A re-claim is reconcilable, not safe.** This file used to say re-attempting was safe "because
+  the operator call carries `redemption:<id>` as its idempotency key". Honouring that key is the
+  operator's decision and neither simulated operator here honours it, so a re-claim may ask for a
+  SECOND grant of the same reward (TD-0011). What is guaranteed is that it is recorded: the claim
+  increments `grant_requests` and stamps `grant_requested_at` (migration 0013) in the transaction
+  that commits *before* the operator is called, so `grant_requests > 1` on an `issued` redemption is
+  the reconciliation list. It is reported by the status API and logged when issuance completes.
+- **The three write-backs require the claim they were taken under.** `markIssued`, `scheduleRetry`
+  and `markFailed` match only `status = 'issuing' and claimed_by = <this claim>`, and `claimed_by`
+  is `<instance>/<uuid>` — unique per CLAIM, so one worker's stale attempt cannot write over its own
+  re-claim. Keyed on `(tenant, id)` alone, a worker whose lease expired mid-call wrote its failure
+  over a peer's success and refunded coins for a reward the operator had granted. Everything that
+  belongs to an outcome — the refund, the event — is inside that write-back's `if`, because a
+  tighter UPDATE with an unconditional refund beside it still pays the player.
 - The refund happens when issuance FAILS — out of attempts, or a terminal failure — keyed
   `redemption:<id>:refund`, so a worker that dies mid-refund retries into the same key instead of
   paying twice. It is not what recovers a crashed issuance; the lease above is. (This file used to
