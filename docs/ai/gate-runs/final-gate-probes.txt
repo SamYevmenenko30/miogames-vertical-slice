@@ -1,5 +1,5 @@
 
-gate-probes — 23 probe(s)
+gate-probes — 24 probe(s)
 
 ✓  lint/domain-ring-stays-pure
 ✓  lint/no-deep-import-across-modules
@@ -14,6 +14,7 @@ gate-probes — 23 probe(s)
 ✓  spec-gate/unanswered-open-question
 ✓  spec-gate/a-bullet-that-is-not-a-question
 ✓  spec-gate/answer-without-an-owner
+✓  docs-links/a-link-to-nowhere
 ✓  board/column-drift
 ✓  board/spec-waiver-without-a-reason
 ✓  board/wip-limit-of-one
@@ -25,4 +26,4 @@ gate-probes — 23 probe(s)
 ✓  red-check/a-missing-table-is-crash-red-not-a-missing-environment
 ✓  red-check/requires-the-tests-phase-to-add-a-test
 
-gate-probes: PASS — all 23 probes behaved: each gate goes red on its planted violation and green without one, and the classifier probes accept what they should.
+gate-probes: PASS — all 24 probes behaved: each gate goes red on its planted violation and green without one, and the classifier probes accept what they should.

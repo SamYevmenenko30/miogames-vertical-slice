@@ -5,21 +5,22 @@
 
 ── Casino Platform A (casino-a)
   ✓  1. the operator emits a deposit in its own dialect
-  ✓  2. MIO accepts and deduplicates the event — eventId 56ca587d…
+  ✓  2. MIO accepts and deduplicates the event — eventId 488c25cd…
   ✓  3. the rules engine granted spins; the operator mints a player session
   ✓  4. the spin drew coins-10 — recomputed from the revealed seed; 10 coins credited
-  … 60 coins after every spin, below the 100 the item costs — the wheel is weighted, so this is a legitimate outcome. Topping up through the ledger to finish the flow.
+  … 20 coins after every spin, below the 100 the item costs — the wheel is weighted, so this is a legitimate outcome. Topping up through the ledger to finish the flow.
   ✓  5. the player redeems coins for a reward — 100 coins − 100
-  ✓  6. the reward is issued through the operator adapter — ref A-c995e601-a2ae-4ad0-918e-472bfd035f2c
+  ✓  6. the reward is issued through the operator adapter — ref A-a77ba833-3833-4f96-832e-dee8672811b8
   ✓  7. replaying the deposit and the redemption changes nothing
 
 ── Casino Platform B (casino-b)
   ✓  8. the operator emits a deposit in its own dialect
-  ✓  9. MIO accepts and deduplicates the event — eventId b6afbf27…
+  ✓  9. MIO accepts and deduplicates the event — eventId d5773d5b…
   ✓ 10. the rules engine granted spins; the operator mints a player session
-  ✓ 11. the spin drew coins-50 — recomputed from the revealed seed; 50 coins credited
+  ✓ 11. the spin drew coins-10 — recomputed from the revealed seed; 10 coins credited
+  … 10 coins after every spin, below the 100 the item costs — the wheel is weighted, so this is a legitimate outcome. Topping up through the ledger to finish the flow.
   ✓ 12. the player redeems coins for a reward — 100 coins − 100
-  ✓ 13. the reward is issued through the operator adapter — ref B-1175557d-295f-4335-86f8-33628a8743fa
+  ✓ 13. the reward is issued through the operator adapter — ref B-1383e8af-a04f-4fb2-96c4-1f7914476b04
   ✓ 14. replaying the deposit and the redemption changes nothing
 
 smoke: PASS — 14 asserted steps across both operators
