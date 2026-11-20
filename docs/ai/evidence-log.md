@@ -7,7 +7,8 @@ around it.
 The short version: **writing the code was the easy half.** The agent is fast, fluent, and exactly
 as fluent when it is wrong. What made the output trustworthy was a set of gates that could fail —
 and the single most useful thing in this repository is that the gates themselves were tested, and
-four of them were dead on the first run.
+six of them — the boundary lint, `spec-gate`, `arch-check`, `red-check`, `test-guard` and the
+board probes — were dead or wrong on the first run.
 
 ## How it was built
 
@@ -29,11 +30,14 @@ The artefacts are all in the repository, not described in it:
 | The board, as folders, moved with `git mv` | [board/](../../board/) — each card carries its phase log and its review findings |
 | The gates | [scripts/](../../scripts/) |
 | Raw gate output | [gate-runs/](gate-runs/) |
-| 15 specs with numbered, testable statements | [docs/specs/](../specs/) |
+| 13 specs with numbered, testable statements (MIO-001…013; MIO-000 is the pipeline itself and MIO-014 is documentation, so neither has one) | [docs/specs/](../specs/) |
 
-`git log` is the primary evidence: every ticket has a `spec(...)`, a `test(...)` and a
-`feat(...)` commit in that order, each with a `Ticket:` trailer, and agent-written commits keep
-their `Co-Authored-By` line.
+`git log` is the primary evidence: every ticket that implements behaviour has a `spec(...)`, a
+`test(...)` and a `feat(...)` commit in that order, each with a `Ticket:` trailer, and
+agent-written commits keep their `Co-Authored-By` line. Three tickets do not fit the shape, and
+should not be read as if they did: **MIO-000** built the pipeline itself and has no spec or test
+phase, **MIO-013** added the smoke run whose assertions live in `scripts/smoke.ts` rather than in
+a `test(...)` commit, and **MIO-014** is documentation only.
 
 ## What the gates caught
 
@@ -88,8 +92,14 @@ that the gates would be probed; what is deliberately not built. And every questi
 [human-decisions.md](human-decisions.md), each of which the agent would have answered
 defensibly and wrongly for the business.
 
-**How I verified it:** the gates above, re-run on every ticket, with the raw output kept. Plus
-the one thing no gate does — reading each spec's open questions and answering them myself.
+**How I verified it:** the gates above, re-run on every ticket. Plus the one thing no gate does —
+reading each spec's open questions and answering them myself.
+
+The raw output was **kept for six of them** — MIO-001, 002, 003, 004, 007 and 008, in
+[gate-runs/](gate-runs/), alongside the final `gate-probes` and `smoke` runs. It was not kept for
+MIO-005, 006, 009, 010, 011, 012, 013 or 014, and those branches were merged and deleted, so
+those verdicts are no longer recoverable by anyone. That gap covers the bonus store, reward
+issuance and tenant isolation — the three tickets whose evidence a reviewer would most want.
 
 ## Honest limits of this evidence
 

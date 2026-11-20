@@ -100,7 +100,9 @@ modules:
       The bonus store and the redemption lifecycle: price an item, debit coins, ask the operator
       to issue the reward, track the outcome, refund when issuance finally fails.
     invariants:
-      - "The debit and the redemption intent are one transaction; the external call is never inside it."
+      - "The debit and the redemption intent are one transaction; redeeming never calls an operator."
+      - "Issuance takes a LEASE on its claim, so a worker that dies mid-call cannot wedge a redemption (migration 0012)."
+      - "On the FIRST issuance attempt the operator call runs inside the outbox consumer's transaction — TD-0011."
       - "An Idempotency-Key replay returns the first redemption and debits once."
       - "Leaving 'issuing' without an external reference refunds the coins, keyed on the redemption id."
     dependsOn: [ledger, integration, identity]

@@ -15,12 +15,20 @@ import express, { type Express, type Request, type Response } from 'express';
  *   garbage       → 200 with a body that is not the dialect
  *   timeout       → never answer (the caller's timeout must fire)
  * or configured for the next N calls with POST /:operator/_mock/flaky {failures}.
+ *
+ * It also COUNTS the reward grants it is asked for, readable at
+ * GET /:operator/_mock/reward-calls. "Two workers must produce one operator call"
+ * is a claim about how many times the operator was asked, and a test that does not
+ * count cannot make it — which is how a redemption-issuance test came to assert
+ * the final status instead, and passed with the claim's mechanism deleted.
  */
 export function createCasinoMock(): Express {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
 
   const flaky = new Map<string, number>();
+  /** How many reward grants each operator has been asked for, 500s included. */
+  const rewardCalls = new Map<string, number>();
   // A STICKY behaviour, for the cases a per-request header cannot reach: the
   // caller under test is the adapter, and a test cannot set headers on a call it
   // does not make.
@@ -58,6 +66,18 @@ export function createCasinoMock(): Express {
     res.status(200).json({ operator: req.params.operator, behaviour });
   });
 
+  app.get('/:operator/_mock/reward-calls', (req, res) => {
+    res.status(200).json({ operator: req.params.operator, calls: rewardCalls.get(req.params.operator) ?? 0 });
+  });
+
+  app.post('/:operator/_mock/reset', (req, res) => {
+    const operator = req.params.operator;
+    flaky.delete(operator);
+    sticky.delete(operator);
+    rewardCalls.delete(operator);
+    res.status(200).json({ operator, reset: true });
+  });
+
   app.post('/:operator/_mock/flaky', (req, res) => {
     const failures = Number((req.body as { failures?: number }).failures ?? 0);
     flaky.set(req.params.operator, failures);
@@ -79,6 +99,7 @@ export function createCasinoMock(): Express {
   });
 
   app.post('/casino-a/rewards', async (req, res) => {
+    rewardCalls.set('casino-a', (rewardCalls.get('casino-a') ?? 0) + 1);
     if ((await behave(req, res)) === 'handled') return;
     const body = req.body as { user_id?: string; reward_type?: string; reward_value?: number };
     // A real operator refuses a nonsensical grant rather than accepting it
@@ -106,6 +127,7 @@ export function createCasinoMock(): Express {
   });
 
   app.post('/casino-b/commands', async (req, res) => {
+    rewardCalls.set('casino-b', (rewardCalls.get('casino-b') ?? 0) + 1);
     if ((await behave(req, res)) === 'handled') return;
     const body = req.body as { command?: string; playerRef?: string; reward?: { kind?: string; units?: number } };
     if (body.command !== 'GRANT_REWARD' || !body.playerRef || !body.reward?.kind || !(Number(body.reward?.units) > 0)) {

@@ -78,6 +78,8 @@ export const JOB_REDEMPTION_REPOSITORY = Symbol('JobRedemptionRepository');
           maxAttempts: config.issuanceMaxAttempts,
           baseBackoffMs: config.issuanceBaseBackoffMs,
           maxBackoffMs: config.issuanceMaxBackoffMs,
+          claimTimeoutMs: config.issuanceClaimTimeoutMs,
+          instanceId: `issuance-${process.pid}`,
         }),
     },
     {
@@ -95,17 +97,18 @@ export const JOB_REDEMPTION_REPOSITORY = Symbol('JobRedemptionRepository');
     },
     {
       provide: IssuanceWorker,
-      inject: [JobUnitOfWork, JOB_REDEMPTION_REPOSITORY, IssueRewardUseCase, CLOCK, LOGGER],
+      inject: [JobUnitOfWork, JOB_REDEMPTION_REPOSITORY, IssueRewardUseCase, CLOCK, LOGGER, APP_CONFIG],
       useFactory: (
         uow: JobUnitOfWork,
         redemptions: RedemptionRepository,
         issue: IssueRewardUseCase,
         clock: Clock,
         logger: Logger,
-      ) => new IssuanceWorker(uow, redemptions, issue, clock, logger),
+        config: AppConfig,
+      ) => new IssuanceWorker(uow, redemptions, issue, clock, logger, config.issuanceClaimTimeoutMs),
     },
   ],
-  exports: [RewardsFacade, RedeemUseCase, IssueRedemptionConsumer, IssuanceWorker],
+  exports: [RewardsFacade, RedeemUseCase, IssueRewardUseCase, IssueRedemptionConsumer, IssuanceWorker],
 })
 export class RewardsModule {}
 

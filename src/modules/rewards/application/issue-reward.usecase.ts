@@ -12,16 +12,35 @@ export type IssuanceOptions = {
   maxAttempts: number;
   baseBackoffMs: number;
   maxBackoffMs: number;
+  /** How long this worker's `issuing` claim is honoured before a peer re-claims it. */
+  claimTimeoutMs: number;
+  /** Stamped on the claim, so a stuck redemption names the worker that took it. */
+  instanceId: string;
 };
 
 /**
  * Ask the operator to issue a reward, and deal with every way that can go wrong.
  *
- * The external call is deliberately NOT inside a transaction: an HTTP call in a
- * transaction holds a database connection for as long as someone else's timeout.
+ * The external call is MEANT to sit outside a transaction — an HTTP call in a
+ * transaction holds a database connection for as long as someone else's timeout —
+ * and on the retry path it does. See the second caveat below for where it does
+ * not, which is measured, not assumed.
  * So the shape is claim (transaction) → call (no transaction) → record
  * (transaction), and the claim is a conditional UPDATE so two workers cannot both
  * start issuing the same reward.
+ *
+ * Two caveats, both measured rather than assumed:
+ *
+ *   - The claim takes a LEASE. If this process dies between the operator call and
+ *     recording the outcome, the sweep re-claims the redemption once the lease
+ *     expires. Re-attempting is safe because the intent below carries
+ *     `redemption:<id>` as its idempotency key, so an operator that already
+ *     granted the reward returns the same reference instead of granting a second.
+ *   - "call (no transaction)" holds on the RETRY path, where the sweep invokes
+ *     this with nothing open. On the first attempt the outbox consumer is already
+ *     inside a transaction and `UnitOfWork` is re-entrant, so the calls below
+ *     JOIN it and the operator call does run with a transaction open. That is
+ *     TD-0011, not a thing this comment should claim is otherwise.
  */
 export class IssueRewardUseCase {
   constructor(
@@ -38,7 +57,12 @@ export class IssueRewardUseCase {
 
   async execute(redemptionId: string): Promise<void> {
     const claimed = await this.uow.withTransaction(async () =>
-      this.redemptions.claimForIssuance(redemptionId, this.clock.now()),
+      this.redemptions.claimForIssuance(
+        redemptionId,
+        this.clock.now(),
+        this.options.instanceId,
+        this.options.claimTimeoutMs,
+      ),
     );
     // Someone else has it, or it is already issued or failed. Not an error.
     if (!claimed) return;

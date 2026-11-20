@@ -78,6 +78,19 @@ describe('ledger — movements', () => {
     });
   });
 
+  it('S3 — a debit of exactly the balance succeeds and leaves zero', async () => {
+    // The boundary of the one comparison that decides whether a purchase is
+    // affordable. Nothing used to spend a player's whole balance, so turning
+    // `balance < coins` into `balance <= coins` — which refuses a player who has
+    // exactly enough — left the entire suite green.
+    await asA(async () => ledger.credit({ playerId: player, coins: 100, reason: 'spin.prize', idempotencyKey: 'c1' }));
+    const entry = await asA(async () =>
+      ledger.debit({ playerId: player, coins: 100, reason: 'redemption', idempotencyKey: 'd1' }),
+    );
+    expect(entry).toMatchObject({ direction: 'debit', coins: 100 });
+    expect(await asA(async () => ledger.balanceOf(player))).toBe(0);
+  });
+
   it('S4 — the database refuses a negative balance on a direct update', async () => {
     await asA(async () => ledger.credit({ playerId: player, coins: 10, reason: 'spin.prize', idempotencyKey: 'c1' }));
     await expect(
@@ -120,9 +133,66 @@ describe('ledger — movements', () => {
     ]);
 
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(rejected).toHaveLength(1);
+    // WHICH refusal matters, not just that one happened. `SELECT … FOR UPDATE` is
+    // what makes the loser read the WINNER's balance and get the friendly 422;
+    // without it the loser passes the application check on a stale read and is
+    // refused by the CHECK constraint instead, which reaches the player as a 500.
+    // The money is safe either way (ADR-0005) — the answer is not.
+    expect(String(rejected[0]!.reason)).toMatch(/insufficient/i);
     expect(await asA(async () => ledger.balanceOf(player))).toBe(40);
     expect(await testDb.sql`select count(*)::int as n from ledger.entry`).toMatchObject([{ n: 2 }]);
+  });
+
+  it('S6 — the balance row is held for the whole transaction: a second mover waits for the first', async () => {
+    // S6 above proves the OUTCOME of two concurrent debits, but it proves it with
+    // or without the lock: when the loser happens to read after the winner has
+    // committed it refuses politely all by itself. Whether `FOR UPDATE` is there
+    // is a question about BLOCKING, so this asserts blocking directly — two
+    // movements on their own connections, the second cannot have the row while
+    // the first still holds it.
+    await asA(async () => ledger.credit({ playerId: player, coins: 100, reason: 'spin.prize', idempotencyKey: 'c1' }));
+
+    const uowA = new UnitOfWork(database);
+    const uowB = new UnitOfWork(database);
+    const repoA = new LedgerRepository(uowA);
+    const repoB = new LedgerRepository(uowB);
+
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let secondGotTheRow = false;
+
+    const first = asA(async () =>
+      uowA.withTransaction(async () => {
+        await repoA.lockBalance(player);
+        await held;
+      }),
+    );
+    const second = (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return asA(async () =>
+        uowB.withTransaction(async () => {
+          await repoB.lockBalance(player);
+          secondGotTheRow = true;
+        }),
+      );
+    })();
+
+    // `finally`, because the held transaction has to be let go even when the
+    // assertion below fails: leaving it open holds a pooled connection and every
+    // later test in this file waits out its timeout instead of reporting its own
+    // result. (It did, the first time this was written.)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(secondGotTheRow, 'the second mover read the balance while the first still held it').toBe(false);
+    } finally {
+      release();
+      await Promise.allSettled([first, second]);
+    }
+    expect(secondGotTheRow).toBe(true);
   });
 
   it('S7 — entries are append-only', async () => {

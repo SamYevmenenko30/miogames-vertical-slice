@@ -5,9 +5,11 @@ import { withTenant } from '../../../platform/db/tenant-context';
 import { createCasinoMock } from '../../../mocks/casino-platform/app';
 import { startTestApi, type TestApi } from '../../../test/api.helper';
 import { IdentityFacade } from '../../identity';
+import { IntegrationFacade } from '../../integration';
 import { LedgerFacade } from '../../ledger';
 import { IssueRedemptionConsumer } from '../adapters/in/issue-redemption.consumer';
 import { IssuanceWorker } from '../application/issuance.worker';
+import { IssueRewardUseCase } from '../application/issue-reward.usecase';
 
 let api: TestApi;
 let mock: Server;
@@ -50,6 +52,12 @@ const statusOf = async (tenant: keyof typeof operatorKeys, id: string) => {
     .get(`/v1/redemptions/${id}`)
     .set('authorization', `Bearer ${tokens[tenant]}`);
   return res.body as { status: string; attempts: number; lastError: string | null; externalRef: string | null };
+};
+
+/** How many reward grants the operator was actually asked for, 500s included. */
+const rewardCalls = async (operator: 'casino-a' | 'casino-b') => {
+  const res = await request(mock).get(`/${operator}/_mock/reward-calls`);
+  return res.body.calls as number;
 };
 
 const balance = async (tenant: keyof typeof operatorKeys) => {
@@ -124,8 +132,8 @@ beforeEach(async () => {
     await session(tenant, 'player-77');
     await topUp(tenant, 500);
   }
-  await request(mock).post('/casino-a/_mock/flaky').send({ failures: 0 });
-  await request(mock).post('/casino-b/_mock/flaky').send({ failures: 0 });
+  await request(mock).post('/casino-a/_mock/reset').send({});
+  await request(mock).post('/casino-b/_mock/reset').send({});
 });
 
 describe('rewards — issuance', () => {
@@ -212,6 +220,12 @@ describe('rewards — issuance', () => {
     const status = await statusOf('tenant-a', id);
     expect(status.status).toBe('failed');
     expect(await balance('tenant-a')).toBe(before);
+    // The BOUNDARY of the budget, not just its interior: ISSUANCE_MAX_ATTEMPTS is 3
+    // here, so the operator is asked exactly three times and `attempts` lands on
+    // three. Without this, `attempts >= max` could become `attempts > max` — one
+    // extra call to a failing operator for every redemption — and stay green.
+    expect(status.attempts).toBe(3);
+    expect(await rewardCalls('casino-a')).toBe(3);
 
     const refunds = await api.db.sql`
       select idempotency_key, coins, direction from ledger.entry where idempotency_key = ${`redemption:${id}:refund`}`;
@@ -241,26 +255,90 @@ describe('rewards — issuance', () => {
     expect(await balance('tenant-a')).toBe(before);
   });
 
-  it('S10 — two workers draining the same redemption make one operator call', async () => {
+  it('S10 — two workers racing the same redemption make exactly ONE operator call', async () => {
     const id = await redeem('tenant-a', 'k10');
-    const consumer = api.app.get(IssueRedemptionConsumer);
-    const rows = await api.db.sql`select * from infra.outbox where name = 'rewards.redemption.requested'`;
-    const event = {
-      id: String(rows[0]!.id),
-      name: rows[0]!.name as string,
-      tenantId: rows[0]!.tenant_id as string,
-      aggregateType: 'redemption',
-      aggregateId: rows[0]!.aggregate_id as string,
-      payload: rows[0]!.payload as Record<string, unknown>,
-      occurredAt: rows[0]!.occurred_at as Date,
-    };
+    expect(await rewardCalls('casino-a')).toBe(0);
 
-    await Promise.allSettled([consumer.consume(event), consumer.consume(event)]);
+    // TWO WORKERS, not one consumer called twice. Both enter the tenant and both
+    // reach the use case, so what settles the race is the
+    // `pending_issuance → issuing` conditional UPDATE — the mechanism this
+    // statement is about. Driving the consumer twice with ONE event id instead
+    // puts `infra.processed_event` in charge, which is a different guarantee and
+    // is already proved in platform/events; this test used to do that, and so it
+    // stayed green when the claim predicate was deleted. It also now COUNTS the
+    // operator calls, because "one operator call" is a claim about how many times
+    // the operator was asked and cannot be checked by reading the final status.
+    const issue = api.app.get(IssueRewardUseCase);
+    const results = await Promise.allSettled([
+      withTenant('tenant-a', async () => issue.execute(id)),
+      withTenant('tenant-a', async () => issue.execute(id)),
+    ]);
+    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(0);
 
+    expect(await rewardCalls('casino-a')).toBe(1);
     const status = await statusOf('tenant-a', id);
     expect(status.status).toBe('issued');
-    expect(status.attempts).toBeLessThanOrEqual(1);
+    // `attempts` counts attempts that FAILED (only scheduleRetry/markFailed move
+    // it), so a redemption issued on its first call reports 0. Asserted exactly,
+    // because the inequality this test used to carry (`<= 1`) was satisfied by
+    // every outcome it was meant to distinguish.
+    expect(status.attempts).toBe(0);
   });
+
+  it('S11 — a worker that dies mid-issuance does not wedge the redemption: the lease expires and the sweep recovers it', async () => {
+    const before = await balance('tenant-a');
+    const id = await redeem('tenant-a', 'k11');
+    expect(await balance('tenant-a')).toBe(before - 100);
+
+    // One retryable failure, so the RETRY SWEEP owns the next attempt. There the
+    // claim commits in its own transaction, which is the state a crash leaves
+    // behind; on the first attempt the consumer's transaction would roll it back.
+    await request(mock).post('/casino-a/_mock/flaky').send({ failures: 1 });
+    await drain();
+    expect((await statusOf('tenant-a', id)).status).toBe('pending_issuance');
+
+    // The worker dies after claiming, at the operator call.
+    const integration = api.app.get(IntegrationFacade);
+    const real = integration.issueReward.bind(integration);
+    (integration as unknown as { issueReward: unknown }).issueReward = async () => {
+      throw new Error('the worker process died after the operator call');
+    };
+    await drain();
+    (integration as unknown as { issueReward: unknown }).issueReward = real;
+    expect((await statusOf('tenant-a', id)).status).toBe('issuing');
+
+    // While the lease is FRESH the redemption is left alone: a live worker must
+    // not have its in-flight issuance taken away mid-call.
+    await drain();
+    expect((await statusOf('tenant-a', id)).status).toBe('issuing');
+
+    // Age the lease instead of waiting ISSUANCE_CLAIM_TIMEOUT_MS out. The lease is
+    // measured on the DATABASE clock — deciding another process is dead needs the
+    // clock every process shares — so the injected clock cannot move it, and a
+    // real wait would only make this test slow.
+    await api.db.sql`update rewards.redemption set claimed_at = now() - interval '1 hour' where id = ${id}`;
+
+    await drain();
+    const recovered = await statusOf('tenant-a', id);
+    expect(recovered.status).toBe('issued');
+    expect(recovered.externalRef).toMatch(/^A-/);
+    // Paid for once, and received: no refund, no second debit.
+    expect(await balance('tenant-a')).toBe(before - 100);
+  });
+
+  it('S12 — an `issuing` row left behind with no lease at all is recovered too', async () => {
+    const id = await redeem('tenant-a', 'k12');
+    // Exactly the shape migration 0012 inherits: rows already wedged in `issuing`
+    // when the lease column arrived have claimed_at NULL. NULL counts as stale, so
+    // they heal on the next tick rather than needing a hand-written UPDATE.
+    await api.db.sql`
+      update rewards.redemption set status = 'issuing', claimed_at = null, claimed_by = null where id = ${id}`;
+
+    await drain();
+
+    expect((await statusOf('tenant-a', id)).status).toBe('issued');
+  });
+
 });
 
 /** Set the mock's behaviour for the duration of a block, through its flaky switch. */

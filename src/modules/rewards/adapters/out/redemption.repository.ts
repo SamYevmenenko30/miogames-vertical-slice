@@ -63,22 +63,52 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
   }
 
   /**
-   * Move `pending_issuance` → `issuing`, exactly once. A conditional UPDATE, so
-   * two workers cannot both start issuing the same reward.
+   * Move `pending_issuance` → `issuing` and stamp a LEASE on the row.
+   *
+   * A conditional UPDATE, so two workers cannot both start issuing the same
+   * reward: the loser's predicate is re-evaluated after the row lock is granted
+   * and no longer matches, so it gets nothing.
+   *
+   * It also claims an `issuing` row whose lease has gone stale. Without that, a
+   * worker that died between the operator call and recording its outcome left the
+   * redemption in `issuing` forever — coins debited, no reward, no refund, and
+   * nothing looking for it (the sweep only ever read `pending_issuance`).
+   * A NULL `claimed_at` counts as stale so that rows wedged before migration 0012
+   * heal on the next tick.
+   *
+   * Staleness is measured on the DATABASE clock (`now()`), not the injected one,
+   * for the same reason the outbox relay does it: deciding that another process
+   * is dead needs the one clock every process shares. The retry SCHEDULE still
+   * comes from the injected clock — see `dueForRetry`.
    */
-  async claimForIssuance(id: string, now: Date): Promise<Redemption | null> {
-    const rows = await this.uow.tx
-      .update(redemption)
-      .set({ status: 'issuing', updatedAt: now })
-      .where(and(scopedWhere(redemption), eq(redemption.id, id), eq(redemption.status, 'pending_issuance')))
-      .returning();
-    return rows[0] ? toRedemption(rows[0]) : null;
+  async claimForIssuance(id: string, now: Date, claimedBy: string, leaseMs: number): Promise<Redemption | null> {
+    const tenantId = currentTenantId();
+    const rows = await this.uow.tx.execute<RedemptionRow>(sql`
+      update rewards.redemption
+         set status = 'issuing',
+             claimed_at = now(),
+             claimed_by = ${claimedBy},
+             updated_at = ${now.toISOString()}::timestamptz
+       where tenant_id = ${tenantId}
+         and id = ${id}
+         and (
+           status = 'pending_issuance'
+           or (
+             status = 'issuing'
+             and (claimed_at is null or claimed_at < now() - make_interval(secs => ${leaseMs / 1000}))
+           )
+         )
+      returning id, tenant_id, player_id, item_id, price, reward, status, idempotency_key,
+                attempts, last_error, external_ref, created_at, updated_at
+    `);
+    const row = rows[0];
+    return row ? fromRow(row) : null;
   }
 
   async markIssued(id: string, externalRef: string, now: Date): Promise<void> {
     await this.uow.tx
       .update(redemption)
-      .set({ status: 'issued', externalRef, lastError: null, nextAttemptAt: null, updatedAt: now })
+      .set({ status: 'issued', externalRef, lastError: null, nextAttemptAt: null, claimedAt: null, claimedBy: null, updatedAt: now })
       .where(and(scopedWhere(redemption), eq(redemption.id, id)));
   }
 
@@ -90,6 +120,8 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
         attempts,
         lastError: error.slice(0, 2000),
         nextAttemptAt,
+        claimedAt: null,
+        claimedBy: null,
         updatedAt: now,
       })
       .where(and(scopedWhere(redemption), eq(redemption.id, id)));
@@ -98,7 +130,7 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
   async markFailed(id: string, attempts: number, error: string, now: Date): Promise<void> {
     await this.uow.tx
       .update(redemption)
-      .set({ status: 'failed', attempts, lastError: error.slice(0, 2000), nextAttemptAt: null, updatedAt: now })
+      .set({ status: 'failed', attempts, lastError: error.slice(0, 2000), nextAttemptAt: null, claimedAt: null, claimedBy: null, updatedAt: now })
       .where(and(scopedWhere(redemption), eq(redemption.id, id)));
   }
 
@@ -112,27 +144,71 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
   }
 
   /**
-   * Redemptions whose retry is due, across every tenant — this is the worker's
-   * sweep, which runs outside any tenant scope and carries the tenant forward
-   * from each row.
+   * Work the sweep must pick up, across every tenant — this runs outside any
+   * tenant scope and carries the tenant forward from each row.
    *
-   * Due-ness is measured against the SAME clock that scheduled it — the injected
-   * one. The outbox relay mixes the two deliberately (it also detects dead
-   * peers, which needs a shared clock); a retry schedule does not, and mixing
-   * them here made attempt counts depend on how far the database clock had drifted
-   * from the test's fixed one. Two attempts inside one drain, non-deterministically.
+   * Two kinds, and they are measured on two different clocks on purpose:
+   *
+   *   - a RETRY that is due. Due-ness is measured against the same clock that
+   *     scheduled it — the injected one. Mixing the two here made attempt counts
+   *     depend on how far the database clock had drifted from the test's fixed
+   *     one: two attempts inside one drain, non-deterministically.
+   *   - an issuance whose LEASE has expired, i.e. the worker holding it is
+   *     presumed dead. That is a statement about another process, so it is
+   *     measured on the database clock, the only one every process shares — the
+   *     same split the outbox relay makes.
    */
-  async dueForRetry(now: Date, limit: number): Promise<Array<{ id: string; tenantId: string }>> {
+  async dueForRetry(now: Date, limit: number, leaseMs: number): Promise<Array<{ id: string; tenantId: string }>> {
     const rows = await this.uow.tx.execute<{ id: string; tenant_id: string }>(sql`
       select id, tenant_id from rewards.redemption
-       where status = 'pending_issuance'
-         and next_attempt_at is not null
-         and next_attempt_at <= ${now.toISOString()}::timestamptz
-       order by next_attempt_at
+       where (
+               status = 'pending_issuance'
+               and next_attempt_at is not null
+               and next_attempt_at <= ${now.toISOString()}::timestamptz
+             )
+          or (
+               status = 'issuing'
+               and (claimed_at is null or claimed_at < now() - make_interval(secs => ${leaseMs / 1000}))
+             )
+       order by next_attempt_at nulls first, claimed_at nulls first
        limit ${limit}
     `);
     return rows.map((row) => ({ id: row.id, tenantId: row.tenant_id }));
   }
+}
+
+type RedemptionRow = {
+  id: string;
+  tenant_id: string;
+  player_id: string;
+  item_id: string;
+  price: number;
+  reward: unknown;
+  status: string;
+  idempotency_key: string;
+  attempts: number;
+  last_error: string | null;
+  external_ref: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+/** The same mapping as `toRedemption`, for the statements Drizzle does not express. */
+function fromRow(row: RedemptionRow): Redemption {
+  return toRedemption({
+    id: row.id,
+    tenantId: row.tenant_id,
+    playerId: row.player_id,
+    itemId: row.item_id,
+    price: Number(row.price),
+    reward: row.reward,
+    status: row.status,
+    attempts: Number(row.attempts),
+    lastError: row.last_error,
+    externalRef: row.external_ref,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
 }
 
 function toRedemption(row: {

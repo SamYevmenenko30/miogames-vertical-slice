@@ -12,8 +12,11 @@ Virtual currency. Append-only entries and a balance the database refuses to let 
 - `CHECK (coins > 0)` and a `direction` column: no signed amounts, so no aggregate over this
   table depends on a sign convention. A correction is a `debit` with a reason.
 - Entries are insert-only, enforced by trigger.
-- `SELECT ... FOR UPDATE` on the balance row is what serialises concurrent debits. Removing it
-  does not break a single-threaded test and does break the money.
+- `SELECT ... FOR UPDATE` on the balance row serialises concurrent debits. Be precise about what
+  it buys: the `CHECK` is what keeps the balance non-negative, so removing the lock does not lose
+  money — it changes the loser's answer from a friendly `422` to a constraint violation, i.e. a
+  500. `ledger.integration.spec.ts` S6 now asserts WHICH refusal the loser gets, because asserting
+  only that one of them was rejected passed with the lock deleted.
 
 ## Traps
 
