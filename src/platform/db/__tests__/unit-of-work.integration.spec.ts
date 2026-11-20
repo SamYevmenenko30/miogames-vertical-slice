@@ -12,6 +12,9 @@ let uow: UnitOfWork;
 
 beforeAll(async () => {
   testDb = await createTestDb('unit-of-work');
+  // The OWNER on purpose: this file proves transaction semantics, including what
+  // happens with NO tenant in context, which under row-level security would be
+  // indistinguishable from an empty table.
   database = createDatabase({ url: testDb.url });
   uow = new UnitOfWork(database);
 });

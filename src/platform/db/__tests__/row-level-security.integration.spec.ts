@@ -83,26 +83,71 @@ describe('platform/db — row-level security', () => {
     await expect(app`truncate infra.audit_log`).rejects.toThrowError(/permission|denied|owner/i);
   });
 
-  it('S7 — every tenant-owned table has row-level security enabled and a policy', async () => {
+  it('S9 — the partition root is readable before a tenant is known, and scoped once it is', async () => {
+    // Resolving "which tenant is this key" is the step that ESTABLISHES the
+    // tenant, so it cannot require one: with nothing in context the lookup has to
+    // work, and once a tenant is set it must see only that tenant's keys. Both
+    // halves matter — the first is what every request depends on, and the second
+    // is why identity's own isolation test runs as the owner (it asserts that
+    // `authenticate` ignores the ambient tenant, which this policy would mask).
+    await testDb.sql`insert into identity.tenant_api_key (key_id, tenant_id, secret_digest) values
+      ('key-a', 'tenant-a', 'digest-a'), ('key-b', 'tenant-b', 'digest-b')`;
+
+    const blind = await asTenant(null, async (tx) => tx`select key_id from identity.tenant_api_key order by key_id`);
+    expect(blind.map((row) => row.key_id)).toEqual(['key-a', 'key-b']);
+
+    const scoped = await asTenant('tenant-a', async (tx) => tx`select key_id from identity.tenant_api_key order by key_id`);
+    expect(scoped.map((row) => row.key_id)).toEqual(['key-a']);
+  });
+
+  it('S7 — every tenant-owned table in EVERY schema has row-level security and a policy', async () => {
+    // The census is over the whole catalogue, not a list of schemas written down
+    // here. A hardcoded schema list cannot see a NEW module's schema, which is
+    // exactly how an ungoverned tenant-owned table got past this test: grants for
+    // the application role, no policy, every tenant's rows visible to every
+    // tenant, and the suite green (adversarial review, S2).
     const tables = await testDb.sql<Array<{ schemaname: string; tablename: string; rowsecurity: boolean }>>`
       select n.nspname as schemaname, c.relname as tablename, c.relrowsecurity as rowsecurity
         from pg_class c
         join pg_namespace n on n.oid = c.relnamespace
        where c.relkind = 'r'
-         and n.nspname in ('identity', 'ingestion', 'gamification', 'ledger', 'rewards')
+         and n.nspname not in ('pg_catalog', 'information_schema', 'pg_toast')
+         and n.nspname not like 'pg_temp%'
+         and n.nspname not like 'pg_toast_temp%'
          and exists (
            select 1 from pg_attribute a
             where a.attrelid = c.oid and a.attname = 'tenant_id' and a.attnum > 0 and not a.attisdropped
          )`;
     expect(tables.length).toBeGreaterThan(5);
 
+    // The ONLY table that carries a tenant id and deliberately has no policy: the
+    // relay reads it across tenants by design (MIO-011 Q2). `infra.processed_event`
+    // is often named beside it but has no `tenant_id` column at all, so it is not
+    // tenant-owned and never enters this census — writing it down as an exception
+    // here is what made that clear. Naming the exceptions means a SECOND one
+    // cannot appear without this line changing, which a reviewer sees in the diff.
+    const documentedExceptions = ['infra.outbox'];
+
     const policies = await testDb.sql<Array<{ schemaname: string; tablename: string }>>`
       select schemaname, tablename from pg_policies`;
     const withPolicy = new Set(policies.map((p) => `${p.schemaname}.${p.tablename}`));
 
+    const governed = (t: { schemaname: string; tablename: string; rowsecurity: boolean }) =>
+      t.rowsecurity && withPolicy.has(`${t.schemaname}.${t.tablename}`);
+
     const missing = tables
-      .filter((t) => !t.rowsecurity || !withPolicy.has(`${t.schemaname}.${t.tablename}`))
+      .filter((t) => !documentedExceptions.includes(`${t.schemaname}.${t.tablename}`))
+      .filter((t) => !governed(t))
       .map((t) => `${t.schemaname}.${t.tablename}`);
-    expect(missing).toEqual([]);
+    expect(missing, 'a tenant-owned table with no row-level security policy').toEqual([]);
+
+    // And the exceptions are exactly the documented two — an exception that has
+    // quietly gained a policy, or one that no longer exists, should be noticed.
+    const actualExceptions = tables
+      .filter((t) => !governed(t))
+      .map((t) => `${t.schemaname}.${t.tablename}`)
+      .sort();
+    expect(actualExceptions).toEqual([...documentedExceptions].sort());
   });
+
 });

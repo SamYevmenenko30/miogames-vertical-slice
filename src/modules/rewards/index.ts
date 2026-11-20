@@ -1,4 +1,5 @@
 export { RedeemUseCase } from './application/redeem.usecase';
+export { REWARDS_EVENT_HANDLERS, type RewardsEventHandlers } from './application/ports';
 export { RewardsFacade } from './application/rewards.facade';
 export type { Redemption, RedemptionStatus, RewardPayload, StoreItem } from './domain/redemption';
 export { IssueRewardUseCase } from './application/issue-reward.usecase';

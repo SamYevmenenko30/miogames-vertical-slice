@@ -14,8 +14,15 @@ $$;
 
 grant usage on schema identity, ingestion, gamification, ledger, rewards, infra to mio_app;
 
--- Read and write, but nothing that removes history. TD-0010 said the real control
--- over an append-only table is privilege rather than a trigger; this is it.
+-- Read and write, and DELETE only where a row is genuinely transient (below).
+--
+-- Be exact about what this buys, because an earlier version of this comment was
+-- not: UPDATE is granted here on every table, the append-only ones included, so
+-- privilege is NOT what refuses an UPDATE to ledger.entry, gamification.spin,
+-- gamification.wheel_version or infra.audit_log -- the infra.refuse_mutation
+-- trigger is, and an UPDATE destroys history as surely as a DELETE. Withholding
+-- DELETE and TRUNCATE is the second half of that control, not the whole of it.
+-- TD-0010 carries the remaining gap.
 grant select, insert, update on all tables in schema identity, ingestion, gamification, ledger, rewards, infra to mio_app;
 grant usage, select on all sequences in schema identity, ingestion, gamification, ledger, rewards, infra to mio_app;
 
@@ -93,9 +100,14 @@ create policy tenant_isolation on identity.tenant_api_key
   with check (nullif(current_setting('app.tenant_id', true), '') is null
               or tenant_id = nullif(current_setting('app.tenant_id', true), ''));
 
--- infra.outbox and infra.processed_event carry a tenant id but are platform
--- plumbing the relay reads across tenants by design (MIO-011 Q2). No policy —
--- stated here so the exception is visible rather than discovered.
+-- infra.outbox carries a tenant id but is platform plumbing the relay reads
+-- across tenants by design (MIO-011 Q2). No policy — stated here so the
+-- exception is visible rather than discovered.
+--
+-- infra.processed_event is NOT an exception: it has no tenant_id column at all
+-- (consumer + event_id is its whole key), so there is nothing to scope and it
+-- never enters the policy census. An earlier version of this comment listed it
+-- beside the outbox, which read as though a tenant-owned table had been let off.
 
 -- infra.audit_log carries a tenant id and IS tenant data, so it gets a policy
 -- too. The relay never reads it; the admin surface reads it scoped.

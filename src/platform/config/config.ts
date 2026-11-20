@@ -63,6 +63,13 @@ const schema = z.object({
   OUTBOX_CLAIM_TIMEOUT_MS: duration(60_000),
 
   ISSUANCE_TIMEOUT_MS: duration(2000),
+  /**
+   * How long a `pending_issuance → issuing` claim is honoured before the sweep
+   * treats the claiming worker as dead and re-claims the redemption. Measured on
+   * the DATABASE clock, like the outbox's claim timeout and for the same reason:
+   * detecting a dead peer needs the one clock every process shares.
+   */
+  ISSUANCE_CLAIM_TIMEOUT_MS: duration(60_000),
   ISSUANCE_MAX_ATTEMPTS: count(5),
   ISSUANCE_BASE_BACKOFF_MS: duration(1000),
   ISSUANCE_MAX_BACKOFF_MS: duration(300_000),
@@ -86,6 +93,7 @@ export type AppConfig = Readonly<{
   outboxBatchSize: number;
   outboxClaimTimeoutMs: number;
   issuanceTimeoutMs: number;
+  issuanceClaimTimeoutMs: number;
   issuanceMaxAttempts: number;
   issuanceBaseBackoffMs: number;
   issuanceMaxBackoffMs: number;
@@ -122,6 +130,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     outboxBatchSize: e.OUTBOX_BATCH_SIZE,
     outboxClaimTimeoutMs: e.OUTBOX_CLAIM_TIMEOUT_MS,
     issuanceTimeoutMs: e.ISSUANCE_TIMEOUT_MS,
+    issuanceClaimTimeoutMs: e.ISSUANCE_CLAIM_TIMEOUT_MS,
     issuanceMaxAttempts: e.ISSUANCE_MAX_ATTEMPTS,
     issuanceBaseBackoffMs: e.ISSUANCE_BASE_BACKOFF_MS,
     issuanceMaxBackoffMs: e.ISSUANCE_MAX_BACKOFF_MS,

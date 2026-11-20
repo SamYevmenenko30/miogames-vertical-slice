@@ -31,6 +31,9 @@ export const redemption = rewards.table(
     lastError: text('last_error'),
     externalRef: text('external_ref'),
     nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
+    /** The issuance LEASE: who is issuing this, and since when (database clock). */
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    claimedBy: text('claimed_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
   },

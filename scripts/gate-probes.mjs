@@ -39,6 +39,10 @@ const write = (rel, text) => {
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, text);
 };
+const append = (rel, text) => {
+  const p = join(WT, rel);
+  writeFileSync(p, readFileSync(p, 'utf8') + text);
+};
 const run = (cmd, args) => trySh(cmd, args, { cwd: WT, env: { ...process.env, CI: '1', FORCE_COLOR: '0' }, timeout: 300_000 });
 const commit = (msg) => {
   sh('git', ['-C', WT, 'add', '-A'], { stdio: 'ignore' });
@@ -178,6 +182,54 @@ const probes = [
     plant() {
       scaffoldModule('ledger');
       rmSync(join(WT, 'src/modules/ledger/__tests__'), { recursive: true, force: true });
+    },
+  },
+  {
+    name: 'arch-check/a-module-may-not-re-export-an-adapter-from-its-wiring',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    // The boundary lint catches this on index.ts, where it is a dependency FROM
+    // the facade. It cannot catch it on <name>.module.ts, which legitimately
+    // imports its own adapters to wire them and where `export … from` looks
+    // identical to `import` — so the same leak was available through the wiring
+    // file, and both modules were using it to hand a consumer to a composition
+    // root.
+    expect: /re-exports an adapter/i,
+    plant() {
+      append('src/modules/ledger/ledger.module.ts',
+        "\nexport { LedgerRepository } from './adapters/out/ledger.repository';\n");
+    },
+  },
+  {
+    name: 'arch-check/an-isolation-test-must-run-as-the-application-role',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    // Row-level security does not apply to a table's owner, so an isolation test
+    // on the owner connection proves the application-level scoping and says
+    // nothing about the database layer it is named for — while reading as though
+    // it covered both.
+    expect: /must connect as the APPLICATION role/i,
+    plant() {
+      write('src/modules/ledger/__tests__/ledger-isolation.integration.spec.ts',
+        `import { beforeAll, describe, expect, it } from 'vitest';\n` +
+        `import { createDatabase } from '../../../platform/db/database';\n` +
+        `import { createTestDb } from '../../../test/db.helper';\n\n` +
+        `beforeAll(async () => {\n` +
+        `  const testDb = await createTestDb('probe');\n` +
+        `  createDatabase({ url: testDb.url });\n` +
+        `});\n\n` +
+        `describe('probe', () => {\n  it('S1 — probe', () => { expect(1).toBe(1); });\n});\n`);
+    },
+  },
+  {
+    name: 'arch-check/startTestApi-must-still-point-at-the-application-role',
+    gate: ['node', ['scripts/arch-check.mjs']],
+    // The isolation-role rule lets `startTestApi` stand in for an explicit
+    // application-role connection. If the helper ever stops doing that, a dozen
+    // suites stop exercising row-level security at once and every one of them
+    // still looks correct, so the stand-in is checked rather than trusted.
+    expect: /no longer points DATABASE_URL at db\.appUrl/i,
+    plant() {
+      const path = 'src/test/api.helper.ts';
+      write(path, readFileSync(join(WT, path), 'utf8').replace('DATABASE_URL: db.appUrl', 'DATABASE_URL: db.url'));
     },
   },
   {
@@ -364,7 +416,54 @@ const probes = [
         `let sql: Awaited<ReturnType<typeof createTestDb>>;\n` +
         `beforeAll(async () => { sql = await createTestDb('probe-missing'); await sql.sql\`select 1 from probe_absent\`; });\n` +
         `it('S1 — probe', () => { expect(1).toBe(1); });\n`);
-      commit('test: a spec whose setup needs a table the branch adds\n');
+      // The declaration is required now that an all-crash-red ticket does not pass
+      // on crash-red alone: this probe plants exactly one crash-red file, so it is
+      // also the happy path of `crash-red-accepted:`.
+      commit('test: a spec whose setup needs a table the branch adds\n\n' +
+        'crash-red-accepted: src/probe-missing-table.integration.spec.ts — the table arrives with ' +
+        'the branch, so the setup cannot reach an assertion at the base\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/an-all-crash-red-ticket-does-not-pass-on-crash-red-alone',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // crash-red means "this file cannot run without the branch", which a test
+    // asserting nothing also achieves. A ticket proved ENTIRELY that way is not
+    // proved, and must either produce one assertion-red file or declare each one.
+    expect: /none fails on an assertion/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-crash-module.ts', `export const f = (): number => 1;\n`);
+      write('src/probe-all-crash.spec.ts',
+        `import { expect, it } from 'vitest';\nimport { f } from './probe-crash-module';\n\n` +
+        `it('S1 — probe', () => { expect(f()).toBe(1); });\n`);
+      commit('test: a spec that can only ever be crash-red, undeclared\n');
+      return base;
+    },
+  },
+  {
+    name: 'red-check/a-typeerror-is-crash-red-not-assertion-red',
+    gate: ['node', ['scripts/red-check.mjs']],
+    expectEnv: (base) => ({ MIO_BASE_REF: base }),
+    // The import RESOLVES at the base (the file exists); only the named export is
+    // new, so the call throws `TypeError: … is not a function` without ever
+    // evaluating the expectation. vitest still echoes `expect(...).toBe(...)` in
+    // the code frame, which the classifier used to read as proof of an assertion
+    // and report as assertion-red — a stronger verdict than the run earned.
+    expectPass: true,
+    expect: /crash-red[\s\S]*TypeError — the run never reached an assertion/i,
+    plant() {
+      const base = sh('git', ['-C', WT, 'rev-parse', 'HEAD']).trim();
+      write('src/probe-typeerror.spec.ts',
+        `import { expect, it } from 'vitest';\n` +
+        `// @ts-expect-error — this export is what the branch adds; at the base it is undefined.\n` +
+        `import { brandNewHelper } from './platform/clock/clock';\n\n` +
+        `it('S1 — probe', () => { expect(brandNewHelper(21)).toBe(42); });\n`);
+      commit('test: a spec whose base run crashes before any assertion\n\n' +
+        'crash-red-accepted: src/probe-typeerror.spec.ts — the helper arrives with the branch, so ' +
+        'the call cannot reach an assertion at the base\n');
       return base;
     },
   },

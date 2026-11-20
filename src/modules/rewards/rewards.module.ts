@@ -11,6 +11,7 @@ import { IntegrationModule } from '../integration/integration.module';
 import { LedgerFacade } from '../ledger';
 import { LedgerModule } from '../ledger/ledger.module';
 import { IssueRedemptionConsumer } from './adapters/in/issue-redemption.consumer';
+import { REWARDS_EVENT_HANDLERS, type RewardsEventHandlers } from './application/ports';
 import { RedemptionController } from './adapters/in/redemption.controller';
 import { IssuanceWorker } from './application/issuance.worker';
 import { IssueRewardUseCase } from './application/issue-reward.usecase';
@@ -78,12 +79,20 @@ export const JOB_REDEMPTION_REPOSITORY = Symbol('JobRedemptionRepository');
           maxAttempts: config.issuanceMaxAttempts,
           baseBackoffMs: config.issuanceBaseBackoffMs,
           maxBackoffMs: config.issuanceMaxBackoffMs,
+          claimTimeoutMs: config.issuanceClaimTimeoutMs,
+          instanceId: `issuance-${process.pid}`,
         }),
     },
     {
       provide: IssueRedemptionConsumer,
       inject: [UnitOfWork, IssueRewardUseCase],
       useFactory: (uow: UnitOfWork, issue: IssueRewardUseCase) => new IssueRedemptionConsumer(uow, issue),
+    },
+    {
+      // The handlers as a VALUE, so a composition root never names the adapter.
+      provide: REWARDS_EVENT_HANDLERS,
+      inject: [IssueRedemptionConsumer],
+      useFactory: (issueRedemption: IssueRedemptionConsumer): RewardsEventHandlers => [issueRedemption],
     },
     {
       // The same repository, bound to the OWNER unit of work. The sweep's query
@@ -95,18 +104,17 @@ export const JOB_REDEMPTION_REPOSITORY = Symbol('JobRedemptionRepository');
     },
     {
       provide: IssuanceWorker,
-      inject: [JobUnitOfWork, JOB_REDEMPTION_REPOSITORY, IssueRewardUseCase, CLOCK, LOGGER],
+      inject: [JobUnitOfWork, JOB_REDEMPTION_REPOSITORY, IssueRewardUseCase, CLOCK, LOGGER, APP_CONFIG],
       useFactory: (
         uow: JobUnitOfWork,
         redemptions: RedemptionRepository,
         issue: IssueRewardUseCase,
         clock: Clock,
         logger: Logger,
-      ) => new IssuanceWorker(uow, redemptions, issue, clock, logger),
+        config: AppConfig,
+      ) => new IssuanceWorker(uow, redemptions, issue, clock, logger, config.issuanceClaimTimeoutMs),
     },
   ],
-  exports: [RewardsFacade, RedeemUseCase, IssueRedemptionConsumer, IssuanceWorker],
+  exports: [RewardsFacade, RedeemUseCase, IssueRewardUseCase, IssuanceWorker, REWARDS_EVENT_HANDLERS],
 })
 export class RewardsModule {}
-
-export { IssueRedemptionConsumer } from './adapters/in/issue-redemption.consumer';

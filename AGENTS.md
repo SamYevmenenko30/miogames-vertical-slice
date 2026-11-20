@@ -12,7 +12,10 @@ real file the agent followed, not a sanitised copy.
    [docs/process.md](docs/process.md).
 2. **A test you cannot see fail is not a test.** `pnpm red-check` must prove every test file the
    branch adds fails at the merge-base. If a test passes without the implementation, delete it or
-   fix it — do not explain it.
+   fix it — do not explain it. Know what the verdict is worth: `crash-red` only proves the file
+   cannot *import* the branch, which a test asserting nothing also achieves, so the gate requires
+   at least one `assertion-red` file per ticket and makes an all-`crash-red` ticket declare each
+   file explicitly. Aim for `assertion-red`.
 3. **Spec tests are read-only while implementing.** If the spec is wrong, stop and commit the
    disagreement as `spec-conflict: <S-id> — <what the spec gets wrong>`. Never edit a spec test
    to make it pass.
@@ -38,7 +41,7 @@ real file the agent followed, not a sanitised copy.
 
 | Command | What it does |
 | --- | --- |
-| `pnpm verify` | lint + typecheck + unit + integration + build + arch-check + board:check. The pre-push check. |
+| `pnpm verify` | lint + typecheck + arch-check + board:check + docs-links + spec-gate + test-guard + unit + integration + build + smoke — eleven gates, cheapest first. The pre-push check. |
 | `pnpm spec-gate MIO-003` | The spec exists, has `S`-ids, has no unanswered open question, and has a card. |
 | `pnpm red-check` | Every test file added on this branch fails at the merge-base, each on its own, in a clean worktree. |
 | `pnpm test-guard` | No pre-existing spec test was modified without a `spec-conflict:` commit. |

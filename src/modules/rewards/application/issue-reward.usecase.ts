@@ -12,16 +12,34 @@ export type IssuanceOptions = {
   maxAttempts: number;
   baseBackoffMs: number;
   maxBackoffMs: number;
+  /** How long this worker's `issuing` claim is honoured before a peer re-claims it. */
+  claimTimeoutMs: number;
+  /** Stamped on the claim, so a stuck redemption names the worker that took it. */
+  instanceId: string;
 };
 
 /**
  * Ask the operator to issue a reward, and deal with every way that can go wrong.
  *
- * The external call is deliberately NOT inside a transaction: an HTTP call in a
- * transaction holds a database connection for as long as someone else's timeout.
- * So the shape is claim (transaction) → call (no transaction) → record
- * (transaction), and the claim is a conditional UPDATE so two workers cannot both
- * start issuing the same reward.
+ * The external call is never inside a transaction: an HTTP call in a transaction
+ * holds a database connection for as long as someone else's timeout. So the shape
+ * is claim (transaction) → call (no transaction) → record (transaction), and the
+ * claim is a conditional UPDATE so two workers cannot both start issuing the same
+ * reward.
+ *
+ * `execute` therefore has exactly ONE caller: the issuance sweep, which invokes
+ * it with nothing open. The outbox consumer calls `scheduleFirstAttempt` instead
+ * and only marks the redemption due. That split was bought with a defect — when
+ * the consumer called `execute` directly, `UnitOfWork`'s re-entrancy meant every
+ * `withTransaction` below JOINED the consumer's transaction, so the sentence
+ * above was false on every first attempt and a pooled connection was held across
+ * the operator's timeout. One way in; one place that talks to an operator.
+ *
+ * The claim also takes a LEASE. If this process dies between the operator call
+ * and recording the outcome, the sweep re-claims the redemption once the lease
+ * expires. Re-attempting is safe because the intent below carries
+ * `redemption:<id>` as its idempotency key, so an operator that already granted
+ * the reward returns the same reference instead of granting a second.
  */
 export class IssueRewardUseCase {
   constructor(
@@ -36,9 +54,27 @@ export class IssueRewardUseCase {
     private readonly options: IssuanceOptions,
   ) {}
 
+  /**
+   * Make a freshly requested redemption due, so the sweep issues it.
+   *
+   * One short write, so it joins the consumer's transaction harmlessly — and that
+   * is the point: the processed-event claim and the schedule commit together, and
+   * the operator call happens later, on the sweep, with nothing open.
+   */
+  async scheduleFirstAttempt(redemptionId: string): Promise<void> {
+    await this.uow.withTransaction(async () =>
+      this.redemptions.markDueForIssuance(redemptionId, this.clock.now()),
+    );
+  }
+
   async execute(redemptionId: string): Promise<void> {
     const claimed = await this.uow.withTransaction(async () =>
-      this.redemptions.claimForIssuance(redemptionId, this.clock.now()),
+      this.redemptions.claimForIssuance(
+        redemptionId,
+        this.clock.now(),
+        this.options.instanceId,
+        this.options.claimTimeoutMs,
+      ),
     );
     // Someone else has it, or it is already issued or failed. Not an error.
     if (!claimed) return;

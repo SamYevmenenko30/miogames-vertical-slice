@@ -49,6 +49,8 @@ const outboxRows = async () =>
 
 beforeAll(async () => {
   testDb = await createTestDb('outbox');
+  // The OWNER on purpose: infra.outbox has no policy by design (the relay reads
+  // it across tenants), so the role makes no difference to what this file proves.
   database = createDatabase({ url: testDb.url });
   uow = new UnitOfWork(database);
   clock = new FixedClock(new Date('2026-11-20T12:00:00.000Z'));

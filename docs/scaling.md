@@ -22,7 +22,8 @@ the trace id already exists on every line and every response.
 The metrics in [observability.md](observability.md), starting with `outbox_lag_seconds` and
 `ledger_balance_drift`: the first says events are moving, the second can only be non-zero through
 a bug (TD-0001). Alerting on the four that mean a customer is affected: ingest acceptance falling
-for one operator, outbox lag, redemptions stuck in `pending_issuance`, issuance failures by
+for one operator, outbox lag, redemptions stuck in `issuing` past their lease (the state that can wedge) and in
+`pending_issuance`, issuance failures by
 operator. Per-operator circuit breaking (TD-0003), so one operator's outage stops consuming
 everyone's retry budget.
 
