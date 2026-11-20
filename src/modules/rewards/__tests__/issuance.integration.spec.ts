@@ -54,12 +54,24 @@ const statusOf = async (tenant: keyof typeof operatorKeys, id: string) => {
 
 const balance = async (tenant: keyof typeof operatorKeys) => {
   const rows = await api.db.sql`
-    select coins from ledger.balance where tenant_id = ${tenant} and player_id = ${players[tenant]}`;
+    select coins from ledger.balance where tenant_id = ${tenant} and player_id = ${players[tenant]!}`;
   return Number(rows[0]?.coins ?? 0);
 };
 
-/** Relay the outbox once, then let the issuance worker run its due retries. */
+/**
+ * One worker cycle: move time on, run whatever retries are now due, then relay
+ * any new outbox events.
+ *
+ * The clock has to advance, because the retry schedule is measured on the
+ * injected clock — a fixed clock cannot exercise a schedule. The first version of
+ * this helper relied on the database clock being ahead of the test's, which made
+ * a single drain perform two attempts, non-deterministically. One second is far
+ * more than the backoff at these settings and far less than the token's hour.
+ */
 const drain = async () => {
+  api.clock.advance(1000);
+  await api.app.get(IssuanceWorker).runDueRetries();
+
   const consumer = api.app.get(IssueRedemptionConsumer);
   const rows = await api.db.sql`
     select id, tenant_id, name, aggregate_type, aggregate_id, payload, occurred_at
@@ -76,7 +88,6 @@ const drain = async () => {
     });
     await api.db.sql`update infra.outbox set published_at = now() where id = ${row.id}`;
   }
-  await api.app.get(IssuanceWorker).runDueRetries();
 };
 
 beforeAll(async () => {
@@ -138,16 +149,9 @@ describe('rewards — issuance', () => {
   });
 
   it('S3 — a timeout is retryable and the redemption stays claimable', async () => {
-    await api.db.sql`update rewards.store_item set reward = ${api.db.sql.json({ kind: 'free_spins', count: 50 })}`;
     const id = await redeem('tenant-a', 'k3');
-    await request(mock).post('/casino-a/_mock/flaky').send({ failures: 0 });
-    // The mock never answers while this header is set, so the adapter's own
-    // timeout has to fire.
-    await api.db.sql`update rewards.redemption set last_error = null where id = ${id}`;
-    await api.db.sql`insert into rewards.store_item (tenant_id, item_id, name, price, reward)
-      values ('tenant-a', 'timeout-marker', 'x', 1, ${api.db.sql.json({ kind: 'free_spins', count: 1 })})
-      on conflict do nothing`;
-
+    // The operator never answers while this is set, so the adapter's own timeout
+    // is what has to fire — and the test asserts that it did, by the reason.
     await withMockBehaviour('timeout', async () => {
       await drain();
     });

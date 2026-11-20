@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '../../platform/config/config';
+import { CasinoARewardAdapter } from './adapters/out/casino-a-reward.adapter';
+import { CasinoBRewardAdapter } from './adapters/out/casino-b-reward.adapter';
 import { CasinoADialect } from './adapters/in/casino-a.dialect';
 import { CasinoBDialect } from './adapters/in/casino-b.dialect';
 import { DialectRegistry } from './application/dialect-registry';
@@ -13,7 +16,15 @@ import { CASINO_REWARD_ADAPTERS, type CasinoRewardPort } from './application/por
 @Module({
   providers: [
     { provide: DialectRegistry, useFactory: () => new DialectRegistry([new CasinoADialect(), new CasinoBDialect()]) },
-    { provide: CASINO_REWARD_ADAPTERS, useValue: [] as CasinoRewardPort[] },
+    {
+      // Onboarding operator #3 adds one line here.
+      provide: CASINO_REWARD_ADAPTERS,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig): CasinoRewardPort[] => [
+        new CasinoARewardAdapter(config),
+        new CasinoBRewardAdapter(config),
+      ],
+    },
     {
       provide: IntegrationFacade,
       inject: [DialectRegistry, CASINO_REWARD_ADAPTERS],

@@ -26,4 +26,6 @@ export interface PlayerRepositoryPort {
   findById(playerId: PlayerId): Promise<Player | null>;
   /** Creates the player and its identity row; the unique constraint settles races. */
   create(externalPlayerId: ExternalPlayerId): Promise<Player>;
+  /** The operator's own id for this player, for an outbound call. */
+  externalIdOf(playerId: PlayerId): Promise<ExternalPlayerId | null>;
 }

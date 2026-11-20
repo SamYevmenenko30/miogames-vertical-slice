@@ -111,17 +111,27 @@ export class RedemptionRepository implements RedemptionRepositoryPort {
     return (rows[0]?.status as RedemptionStatus | undefined) ?? null;
   }
 
-  /** Redemptions whose retry is due. Used by the worker's sweep. */
-  async dueForRetry(now: Date, limit: number): Promise<string[]> {
-    const rows = await this.uow.tx.execute<{ id: string }>(sql`
-      select id from rewards.redemption
+  /**
+   * Redemptions whose retry is due, across every tenant — this is the worker's
+   * sweep, which runs outside any tenant scope and carries the tenant forward
+   * from each row.
+   *
+   * Due-ness is measured against the SAME clock that scheduled it — the injected
+   * one. The outbox relay mixes the two deliberately (it also detects dead
+   * peers, which needs a shared clock); a retry schedule does not, and mixing
+   * them here made attempt counts depend on how far the database clock had drifted
+   * from the test's fixed one. Two attempts inside one drain, non-deterministically.
+   */
+  async dueForRetry(now: Date, limit: number): Promise<Array<{ id: string; tenantId: string }>> {
+    const rows = await this.uow.tx.execute<{ id: string; tenant_id: string }>(sql`
+      select id, tenant_id from rewards.redemption
        where status = 'pending_issuance'
          and next_attempt_at is not null
          and next_attempt_at <= ${now.toISOString()}::timestamptz
        order by next_attempt_at
        limit ${limit}
     `);
-    return rows.map((row) => row.id);
+    return rows.map((row) => ({ id: row.id, tenantId: row.tenant_id }));
   }
 }
 

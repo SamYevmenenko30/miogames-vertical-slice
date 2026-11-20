@@ -21,6 +21,10 @@ export function createCasinoMock(): Express {
   app.use(express.json({ limit: '1mb' }));
 
   const flaky = new Map<string, number>();
+  // A STICKY behaviour, for the cases a per-request header cannot reach: the
+  // caller under test is the adapter, and a test cannot set headers on a call it
+  // does not make.
+  const sticky = new Map<string, string>();
 
   const behave = async (req: Request, res: Response): Promise<'handled' | 'continue'> => {
     const operator = req.path.split('/')[1] ?? '';
@@ -30,7 +34,7 @@ export function createCasinoMock(): Express {
       res.status(500).json({ error: 'operator is having a bad day' });
       return 'handled';
     }
-    const behaviour = String(req.header('x-mock-behaviour') ?? '');
+    const behaviour = String(req.header('x-mock-behaviour') ?? sticky.get(operator) ?? '');
     if (behaviour === 'fail') {
       res.status(500).json({ error: 'operator rejected the request' });
       return 'handled';
@@ -46,6 +50,13 @@ export function createCasinoMock(): Express {
     }
     return 'continue';
   };
+
+  app.post('/:operator/_mock/behaviour', (req, res) => {
+    const behaviour = String((req.body as { behaviour?: string }).behaviour ?? 'none');
+    if (behaviour === 'none') sticky.delete(req.params.operator);
+    else sticky.set(req.params.operator, behaviour);
+    res.status(200).json({ operator: req.params.operator, behaviour });
+  });
 
   app.post('/:operator/_mock/flaky', (req, res) => {
     const failures = Number((req.body as { failures?: number }).failures ?? 0);
@@ -70,8 +81,11 @@ export function createCasinoMock(): Express {
   app.post('/casino-a/rewards', async (req, res) => {
     if ((await behave(req, res)) === 'handled') return;
     const body = req.body as { user_id?: string; reward_type?: string; reward_value?: number };
-    if (!body.user_id || !body.reward_type) {
-      res.status(400).json({ error: 'user_id and reward_type are required' });
+    // A real operator refuses a nonsensical grant rather than accepting it
+    // politely — which is what makes a 4xx a TERMINAL failure for us: retrying
+    // it can never help.
+    if (!body.user_id || !body.reward_type || !(Number(body.reward_value) > 0)) {
+      res.status(400).json({ error: 'user_id, reward_type and a positive reward_value are required' });
       return;
     }
     res.status(200).json({ status: 'granted', reference: `A-${randomUUID()}` });
@@ -94,7 +108,7 @@ export function createCasinoMock(): Express {
   app.post('/casino-b/commands', async (req, res) => {
     if ((await behave(req, res)) === 'handled') return;
     const body = req.body as { command?: string; playerRef?: string; reward?: { kind?: string; units?: number } };
-    if (body.command !== 'GRANT_REWARD' || !body.playerRef || !body.reward?.kind) {
+    if (body.command !== 'GRANT_REWARD' || !body.playerRef || !body.reward?.kind || !(Number(body.reward?.units) > 0)) {
       res.status(422).json({ status: 'REJECTED', reason: 'malformed command' });
       return;
     }

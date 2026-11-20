@@ -74,3 +74,5 @@ import { WheelConfigService } from './application/wheel-config.service';
   exports: [WheelConfigService, DepositObservedConsumer, SpinUseCase],
 })
 export class GamificationModule {}
+
+export { DepositObservedConsumer } from './adapters/in/deposit-observed.consumer';

@@ -91,6 +91,11 @@ export class IdentityFacade {
     return this.uow.withTransaction(async () => this.players.findByExternalId(externalPlayerId));
   }
 
+  /** The operator's own id for this player — needed for an outbound reward call. */
+  async externalIdOf(playerId: PlayerId): Promise<ExternalPlayerId | null> {
+    return this.uow.withTransaction(async () => this.players.externalIdOf(playerId));
+  }
+
   async findPlayerById(playerId: PlayerId): Promise<Player | null> {
     return this.uow.withTransaction(async () => this.players.findById(playerId));
   }
