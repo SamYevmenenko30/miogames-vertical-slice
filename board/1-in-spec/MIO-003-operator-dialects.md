@@ -1,13 +1,13 @@
 ---
 id: MIO-003
 title: "integration: two operator dialects translated into one canonical deposit event"
-column: 0-backlog
+column: 1-in-spec
 type: feature
 module: integration
 part: "B, E"
 depends_on: [MIO-001]
 spec: docs/specs/MIO-003.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-003 — integration: two operator dialects translated into one canonical deposit event
 
@@ -30,7 +30,7 @@ This is the card that decides whether operator #10 costs a day or a sprint. The 
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 9 statements, 2 questions |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
