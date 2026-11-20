@@ -140,7 +140,7 @@ const probes = [
   {
     name: 'arch-check/module-without-isolation-test',
     gate: ['node', ['scripts/arch-check.mjs']],
-    expect: /no tenant-isolation integration test/i,
+    expect: /no tenant-isolation test/i,
     plant() {
       scaffoldModule('ledger');
       rmSync(join(WT, 'src/modules/ledger/__tests__'), { recursive: true, force: true });

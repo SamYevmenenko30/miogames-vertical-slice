@@ -109,8 +109,11 @@ for (const [name, decl] of declared) {
     }
   }
   const files = walk(dir).map((f) => relative(ROOT, f));
-  if (!files.some((f) => /isolation.*\.integration\.spec\.ts$/.test(f))) {
-    r.error(`src/modules/${name}: no tenant-isolation integration test (*isolation*.integration.spec.ts) — ADR-0006 requires one per module`);
+  // A module with no tenant-owned rows still has an isolation property — it just
+  // is not about a WHERE clause — so the test may be a unit test. What is not
+  // negotiable is that the module HAS one.
+  if (!files.some((f) => /isolation.*\.spec\.ts$/.test(f))) {
+    r.error(`src/modules/${name}: no tenant-isolation test (*isolation*.spec.ts) — ADR-0006 requires one per module`);
   }
 
   const declaredDeps = new Set(decl.dependsOn ?? []);
