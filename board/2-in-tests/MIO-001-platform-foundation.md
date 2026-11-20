@@ -1,13 +1,13 @@
 ---
 id: MIO-001
 title: "Platform: config, unit-of-work, tenant-scoped queries, outbox, problem+json"
-column: 1-in-spec
+column: 2-in-tests
 type: chore
 module: platform
 part: "A, C"
 depends_on: [MIO-000]
 spec: docs/specs/MIO-001.md
-gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pass, verify: pending, review: pending }
 ---
 # MIO-001 — Platform: config, unit-of-work, tenant-scoped queries, outbox, problem+json
 
@@ -33,7 +33,7 @@ Six modules will share exactly one transaction model, one error shape and one wa
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
 | spec-harden | 2026-11-20 | `spec-gate` | PASS — 19 statements, 2 questions (both agent defaults, recorded) |
-| tests-from-spec | — | `red-check` | — |
+| tests-from-spec | 2026-11-20 | `red-check` | PASS — 7 files, every one red at the merge-base |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
 
