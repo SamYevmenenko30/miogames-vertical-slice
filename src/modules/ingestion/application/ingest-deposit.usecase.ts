@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { CASINO_DEPOSIT_OBSERVED } from '../../../contracts/events';
 import type { UnitOfWork } from '../../../platform/db/unit-of-work';
 import type { EventBusPort } from '../../../platform/events/outbox';
-import { IntegrationFacade } from '../../integration';
+import type { IntegrationFacade } from '../../integration';
 import type { IngestDecision } from '../domain/envelope';
 import type { DedupRepositoryPort, EnvelopeRepositoryPort } from './ports';
 
