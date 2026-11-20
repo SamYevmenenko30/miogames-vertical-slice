@@ -1,13 +1,13 @@
 ---
 id: MIO-011
 title: "Tenant isolation in three layers, with a test per module"
-column: 0-backlog
+column: 1-in-spec
 type: feature
 module: platform
 part: "A, C"
 depends_on: [MIO-010]
 spec: docs/specs/MIO-011.md
-gates: { spec_gate: pending, red_check: pending, verify: pending, review: pending }
+gates: { spec_gate: pass, red_check: pending, verify: pending, review: pending }
 ---
 # MIO-011 — Tenant isolation in three layers, with a test per module
 
@@ -30,7 +30,7 @@ A forgotten WHERE clause is the realistic leak, not an exploit. One layer is a c
 
 | Phase | When | Gate | Result |
 | --- | --- | --- | --- |
-| spec-harden | — | `spec-gate` | — |
+| spec-harden | 2026-11-20 | `spec-gate` | PASS — 8 statements, 2 questions |
 | tests-from-spec | — | `red-check` | — |
 | implement-to-green | — | `verify` | — |
 | review | — | `review:request` | — |
