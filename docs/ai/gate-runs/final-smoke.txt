@@ -1,0 +1,26 @@
+
+> miogames-slice@0.1.0 smoke /Users/semenyevmenenko/work/mio-games
+> node -r @swc-node/register scripts/smoke.ts
+
+
+── Casino Platform A (casino-a)
+  ✓  1. the operator emits a deposit in its own dialect
+  ✓  2. MIO accepts and deduplicates the event — eventId 56ca587d…
+  ✓  3. the rules engine granted spins; the operator mints a player session
+  ✓  4. the spin drew coins-10 — recomputed from the revealed seed; 10 coins credited
+  … 60 coins after every spin, below the 100 the item costs — the wheel is weighted, so this is a legitimate outcome. Topping up through the ledger to finish the flow.
+  ✓  5. the player redeems coins for a reward — 100 coins − 100
+  ✓  6. the reward is issued through the operator adapter — ref A-c995e601-a2ae-4ad0-918e-472bfd035f2c
+  ✓  7. replaying the deposit and the redemption changes nothing
+
+── Casino Platform B (casino-b)
+  ✓  8. the operator emits a deposit in its own dialect
+  ✓  9. MIO accepts and deduplicates the event — eventId b6afbf27…
+  ✓ 10. the rules engine granted spins; the operator mints a player session
+  ✓ 11. the spin drew coins-50 — recomputed from the revealed seed; 50 coins credited
+  ✓ 12. the player redeems coins for a reward — 100 coins − 100
+  ✓ 13. the reward is issued through the operator adapter — ref B-1175557d-295f-4335-86f8-33628a8743fa
+  ✓ 14. replaying the deposit and the redemption changes nothing
+
+smoke: PASS — 14 asserted steps across both operators
+samples written to docs/samples/part-b-flow.http.md

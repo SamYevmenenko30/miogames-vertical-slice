@@ -43,6 +43,7 @@ real file the agent followed, not a sanitised copy.
 | `pnpm red-check` | Every test file added on this branch fails at the merge-base, each on its own, in a clean worktree. |
 | `pnpm test-guard` | No pre-existing spec test was modified without a `spec-conflict:` commit. |
 | `pnpm arch-check` | The source tree matches `docs/architecture/architecture.yaml`. |
+| `pnpm docs-links` | Every relative markdown link resolves. |
 | `pnpm board` / `pnpm board:check` | Print the board / enforce card ↔ folder, WIP limit, ticket trailers. |
 | `pnpm gate-probes` | Plant a violation of every gate and assert the gate goes red. |
 | `pnpm review:request MIO-003` | Run the whole set and print the block that goes in the card's review section. |

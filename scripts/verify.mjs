@@ -10,6 +10,7 @@ const steps = [
   ['typecheck', 'pnpm', ['typecheck']],
   ['arch-check', 'node', ['scripts/arch-check.mjs']],
   ['board:check', 'node', ['scripts/board.mjs', '--check']],
+  ['docs-links', 'node', ['scripts/docs-links.mjs']],
   ['spec-gate', 'node', ['scripts/spec-gate.mjs']],
   ['test-guard', 'node', ['scripts/test-guard.mjs']],
   ['unit tests', 'pnpm', ['test:unit']],

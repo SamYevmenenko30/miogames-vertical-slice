@@ -79,6 +79,7 @@ at the merge-base and fails any modification without such a commit on the branch
 | `arch-check` | Does the architecture still match its model? | An undeclared cross-module import, a missing ring, a module with no isolation test |
 | `lint` (boundaries) | Did a ring or a module boundary get crossed? | A domain file imports Nest/Drizzle; a deep import into another module |
 | `board:check` | Is the board honest? | Card front-matter column ≠ folder, more than one card in progress, a commit trailer naming a card that does not exist |
+| `docs-links` | Do the documents' cross-references resolve? | A relative markdown link points at a file that does not exist |
 | `verify` | Everything above, plus typecheck, tests and build | Any of them |
 | `gate-probes` | **Do the gates work at all?** | A planted violation does *not* turn its gate red |
 

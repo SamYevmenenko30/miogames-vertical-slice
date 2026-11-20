@@ -226,6 +226,14 @@ const probes = [
     },
   },
   {
+    name: 'docs-links/a-link-to-nowhere',
+    gate: ['node', ['scripts/docs-links.mjs']],
+    expect: /links to .*, which does not exist/i,
+    plant() {
+      write('docs/probe-link.md', '# probe\n\nSee [the plan](plan/does-not-exist.md).\n');
+    },
+  },
+  {
     name: 'board/column-drift',
     gate: ['node', ['scripts/board.mjs', '--check']],
     expect: /front-matter says column/i,

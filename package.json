@@ -28,7 +28,8 @@
     "arch-check": "node scripts/arch-check.mjs",
     "review:request": "node scripts/review-request.mjs",
     "smoke": "node -r @swc-node/register scripts/smoke.ts",
-    "gate-probes": "node scripts/gate-probes.mjs"
+    "gate-probes": "node scripts/gate-probes.mjs",
+    "docs-links": "node scripts/docs-links.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.11",
