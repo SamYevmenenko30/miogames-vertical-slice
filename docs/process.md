@@ -8,7 +8,7 @@ method of my own, in daily use on a live multi-market product, where each gate w
 something real got through while it was missing. It transfers to a one-author build without
 changing shape, because every control is something a machine checks and none of them waits for a
 second pair of eyes to be free. That is also what makes it reviewable here: the whole pipeline is
-one card of sixteen.
+one card of seventeen.
 
 ## The three phases
 

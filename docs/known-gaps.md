@@ -26,7 +26,7 @@ get to discover them — it gets to inherit them, say so, and price them.
 
 ### The problem, measured here
 
-Fourteen specifications carry 147 numbered assertions; 242 tests in 35 files cite them in their
+Fifteen specifications carry 153 numbered assertions; 250 tests in 37 files cite them in their
 `it(...)` titles. That citation is a **convention** carrying almost no weight: `spec-gate` reads
 the ids far enough to require that a specification declare numbered statements and that their ids
 be unique, and nothing anywhere reads the id in a test's title. The two halves are never joined.
@@ -117,12 +117,12 @@ and attention does not scale, which is the whole argument for layers 1 and 2.
 
 A specification here is prose with numbered assertions, and the only thing connecting it to the
 code is a string in a test title that no program reads. Worse, that string is **ambiguous by
-construction**: statement ids restart at `S1` in every specification, so the 14 of them share 51
-distinct ids between 147 statements, and of the 250 `Sn` citations in the test files exactly
-**three** name their specification (`MIO-008 S7`); the other 247 are a bare `S9` that four
-different specifications also use. A program asked "which assertion is this test for?" could not
-answer from the title even if something read it. Consequently nothing can answer, at any moment,
-the questions a reviewer actually has:
+construction**: statement ids restart at `S1` in every specification, so the 15 of them share just
+**19** distinct ids between 153 statements, and of the 259 `Sn` citations in the test files exactly
+**four** name their specification (`MIO-008 S7`); the other 255 are a bare `S9` that five different
+specifications also use. A program asked "which assertion is this test for?" could not answer from
+the title even if something read it. Consequently nothing can answer, at any moment, the questions
+a reviewer actually has:
 
 - Does **every** assertion have at least one test? (Here: unanswerable, per the paragraph above
   — a global match says yes and means nothing.)
@@ -155,7 +155,7 @@ the assertion that moved still has its test.
 
 ### Why it is not here
 
-A one-day slice of 147 assertions is exactly the regime where the map loses to memory — one
+A slice of 153 assertions is exactly the regime where the map loses to memory — one
 revision each, nothing renumbered, everything still in the author's head. It stops being true at
 the fourth revision, which is why the larger pipeline has the presence half of this specified. The
 decision not to build it here is in the open; the decision not to *know* that it is missing would
@@ -167,8 +167,8 @@ not have been.
 
 ### The problem
 
-The fourteen specifications here recorded 28 questions. Three went to the human and were answered
-by him; 23 of the remainder are marked `(agent default)` — answered by me
+The fifteen specifications here recorded 31 questions. Three went to the human and were answered
+by him; 26 of the remainder are marked `(agent default)` — answered by me
 ([human-decisions.md](ai/human-decisions.md)). Every one of those defaults is a place where I could
 not see a fork — and the cost of a default that was wrong is paid in review, or in production, not
 in the specification phase. Hardening a specification by reading it harder has a ceiling: the
@@ -210,7 +210,7 @@ only job is to show that the numbers move for the right reasons.
 It is designed and reviewed; it has never been run. Presenting an unproven method inside a
 submission as if it were a result would be the precise failure this repository is built to avoid.
 It is here because the *problem* it addresses is real and visible in this slice's own artefacts —
-23 of 28 questions answered by the author of the code — and because the shape of the answer is
+26 of 31 questions answered by the author of the code — and because the shape of the answer is
 part of what "working with AI as a code generator" will mean once a single agent writing a single
 branch stops being the interesting case.
 

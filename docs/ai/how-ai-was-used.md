@@ -47,9 +47,9 @@ not trusted, including about its own tooling.
 
 | What | Where it is | Scale |
 | --- | --- | --- |
-| **Plan implementation** | [docs/specs/](../specs/) — a hardened spec per ticket with individually testable statements, and an `## Open questions` section the next phase is blocked on | 14 specs · **147** numbered statements · **28** recorded questions |
-| **Generate or modify code** | `git log` — every ticket is `spec(...)` → `test(...)` → `feat(...)`, each with a `Ticket:` trailer; agent-written commits keep `Co-Authored-By` | 86 commits, all 86 carrying the trailer · 14 merge commits |
-| **Create tests** | The `tests-from-spec` phase, in a session that had seen no implementation plan; every test name begins with the `S`-id it proves, so spec → test is a grep | **242** tests in 35 files |
+| **Plan implementation** | [docs/specs/](../specs/) — a hardened spec per ticket with individually testable statements, and an `## Open questions` section the next phase is blocked on | 15 specs · **153** numbered statements · **31** recorded questions |
+| **Generate or modify code** | `git log` — every ticket is `spec(...)` → `test(...)` → `feat(...)`, each with a `Ticket:` trailer; agent-written commits keep `Co-Authored-By` | 98 commits, all 98 carrying the trailer · 14 merge commits |
+| **Create tests** | The `tests-from-spec` phase, in a session that had seen no implementation plan; every test name begins with the `S`-id it proves, so spec → test is a grep | **250** tests in 37 files |
 | **Review implementation** | [.claude/skills/review/SKILL.md](../../.claude/skills/review/SKILL.md), and two independent adversarial reviews merged **with their findings intact** rather than summarised | Round 1: 3 blockers, 13 should-fix, 6 nits · Round 2: 4 blockers, 14 should-fix, 7 nits |
 | **Identify and fix defects** | [evidence-log.md](evidence-log.md) — what each gate caught and what it would have cost; the board cards carry the findings per ticket; `docs/ai/gate-runs/` holds raw output | 22 declared `spec-conflict:` / `test-fix:` lines, each naming what the test got wrong |
 
@@ -120,7 +120,7 @@ checked, rather than read.
 ### 5. The questions an agent would have answered quietly
 
 `spec-gate` refuses to let a ticket leave the spec phase while an `## Open questions` bullet is
-unanswered, and the answer records who decided and when. **28 questions across 14 specs.** Three
+unanswered, and the answer records who decided and when. **31 questions across 15 specs.** Three
 were product decisions the agent would have answered defensibly and wrongly — tiered versus
 proportional spin grants, what a failed issuance owes the player, how long a spin lives — and
 those went to the product owner. The rest are marked `(agent default)`, which is a real answer and
@@ -137,7 +137,7 @@ Three sessions and a spec per ticket is slower per ticket than asking an agent f
 is faster per *correct* ticket, and it is the only version of this that survives one person's
 attention span — but the honest accounting is:
 
-- The process is **one card of sixteen**. The other fifteen are product.
+- The process is **one card of seventeen**. The other sixteen are product.
 - `pnpm gate-probes` takes minutes, so `review:request` runs it only when the branch touched a
   gate, and CI runs it always.
 - Three review and fix rounds over a one-day slice is a high ratio, justified here because the
