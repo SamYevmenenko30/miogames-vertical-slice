@@ -13,7 +13,8 @@ pnpm smoke              # drives the whole Part B flow end to end and prints eac
 ```
 
 Rehearsed from a clean clone of this repository, which is how the `.env` line got here:
-`db:migrate`, `pnpm test` (35 files, 242 tests) and `pnpm smoke` (14 asserted steps) all pass
+`db:migrate`, `pnpm test` (35 files and 242 tests at the commit rehearsed; 37 and 250 since) and
+`pnpm smoke` (14 asserted steps) all pass
 with no `.env` at all, because the scripts that only need a database default to the compose URL
 and the smoke run builds its own. `pnpm db:seed` and `pnpm dev` do not: they load the whole
 application configuration, and `PLAYER_TOKEN_SECRET` has no default, on purpose — a signing

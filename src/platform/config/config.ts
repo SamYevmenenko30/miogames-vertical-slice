@@ -65,6 +65,21 @@ const schema = z.object({
   DATABASE_OWNER_URL: z.string().optional(),
   DATABASE_POOL_MAX: count(10),
 
+  /**
+   * The four limits that keep database work bounded (MIO-016). They are sent as
+   * startup parameters when a pool opens, so every statement on every connection
+   * carries them whether or not the code path remembered to — and they are
+   * variables rather than constants because a number defended in a spec still has
+   * to be changeable during an incident.
+   *
+   * Migrations are deliberately exempt: an index build on a large table is
+   * SUPPOSED to take minutes, and cancelling it halfway is worse than waiting.
+   */
+  DB_STATEMENT_TIMEOUT_MS: duration(15_000),
+  DB_LOCK_TIMEOUT_MS: duration(5000),
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: duration(30_000),
+  DB_CONNECT_TIMEOUT_SECONDS: count(10),
+
   /** Signs the short-lived player tokens an operator exchanges its player id for. */
   PLAYER_TOKEN_SECRET: z.string().min(16, 'must be at least 16 characters'),
   PLAYER_TOKEN_TTL_SECONDS: count(3600),
@@ -102,6 +117,10 @@ export type AppConfig = Readonly<{
   databaseUrl: string;
   databaseOwnerUrl: string;
   databasePoolMax: number;
+  dbStatementTimeoutMs: number;
+  dbLockTimeoutMs: number;
+  dbIdleInTransactionTimeoutMs: number;
+  dbConnectTimeoutSeconds: number;
   playerTokenSecret: string;
   playerTokenTtlSeconds: number;
   hmacToleranceSeconds: number;
@@ -143,6 +162,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     databaseUrl: e.DATABASE_URL,
     databaseOwnerUrl: e.DATABASE_OWNER_URL ?? e.DATABASE_URL,
     databasePoolMax: e.DATABASE_POOL_MAX,
+    dbStatementTimeoutMs: e.DB_STATEMENT_TIMEOUT_MS,
+    dbLockTimeoutMs: e.DB_LOCK_TIMEOUT_MS,
+    dbIdleInTransactionTimeoutMs: e.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS,
+    dbConnectTimeoutSeconds: e.DB_CONNECT_TIMEOUT_SECONDS,
     playerTokenSecret: e.PLAYER_TOKEN_SECRET,
     playerTokenTtlSeconds: e.PLAYER_TOKEN_TTL_SECONDS,
     hmacToleranceSeconds: e.HMAC_TOLERANCE_SECONDS,

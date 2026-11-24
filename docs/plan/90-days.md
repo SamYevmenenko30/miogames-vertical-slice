@@ -18,7 +18,7 @@ cannot), and a data engineer (the events are already published; analytics is a c
 is a month-seven conversation).
 
 **With AI assistance throughout**, which is the honest caveat on "four": this slice — six modules,
-221 tests, ten gates, the documents — was built by one person and an agent in a day. The gates
+250 tests, ten gates, the documents — was built by one person and an agent in a day. The gates
 are not a one-day artefact themselves: they are a distillation of a method already working in
 production on a live product. The four are
 not four pairs of hands; they are four people who can each *decide*, with an agent doing the

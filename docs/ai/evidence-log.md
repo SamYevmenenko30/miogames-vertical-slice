@@ -34,7 +34,7 @@ The artefacts are all in the repository, not described in it:
 | The board, as folders, moved with `git mv` | [board/](../../board/) — each card carries its phase log and its review findings |
 | The gates | [scripts/](../../scripts/) |
 | Raw gate output | [gate-runs/](gate-runs/) |
-| 14 specs with numbered, testable statements (MIO-001…013 and MIO-015; MIO-000 is the pipeline itself and MIO-014 is documentation, so neither has one) | [docs/specs/](../specs/) |
+| 15 specs with numbered, testable statements (MIO-001…013, MIO-015 and MIO-016; MIO-000 is the pipeline itself and MIO-014 is documentation, so neither has one) | [docs/specs/](../specs/) |
 
 `git log` is the primary evidence: every ticket that implements behaviour has a `spec(...)`, a
 `test(...)` and a `feat(...)` commit in that order, each with a `Ticket:` trailer, and

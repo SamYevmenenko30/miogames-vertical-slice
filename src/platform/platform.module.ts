@@ -2,10 +2,25 @@ import { Global, Module } from '@nestjs/common';
 import { AuditLog } from './audit/audit-log';
 import { CLOCK, SystemClock, type Clock } from './clock/clock';
 import { APP_CONFIG, loadConfig, type AppConfig } from './config/config';
-import { createDatabase, DatabasePools, DATABASE, OWNER_DATABASE, type Database } from './db/database';
+import {
+  createDatabase,
+  DatabasePools,
+  DATABASE,
+  OWNER_DATABASE,
+  type Database,
+  type DatabaseTimeouts,
+} from './db/database';
 import { JobUnitOfWork, UnitOfWork } from './db/unit-of-work';
 import { EVENT_BUS, OutboxEventBus } from './events/outbox';
 import { createLogger, LOGGER } from './observability/logger';
+
+/** One place that turns the four configured numbers into the driver's shape. */
+const timeoutsFrom = (config: AppConfig): DatabaseTimeouts => ({
+  statementMs: config.dbStatementTimeoutMs,
+  lockMs: config.dbLockTimeoutMs,
+  idleInTransactionMs: config.dbIdleInTransactionTimeoutMs,
+  connectSeconds: config.dbConnectTimeoutSeconds,
+});
 
 /**
  * One transaction model, one error shape, one way to emit an event — provided
@@ -20,7 +35,8 @@ import { createLogger, LOGGER } from './observability/logger';
     {
       provide: DATABASE,
       inject: [APP_CONFIG],
-      useFactory: (config: AppConfig) => createDatabase({ url: config.databaseUrl, max: config.databasePoolMax }),
+      useFactory: (config: AppConfig) =>
+        createDatabase({ url: config.databaseUrl, max: config.databasePoolMax, timeouts: timeoutsFrom(config) }),
     },
     { provide: UnitOfWork, inject: [DATABASE], useFactory: (database: Database) => new UnitOfWork(database) },
     {
@@ -28,7 +44,11 @@ import { createLogger, LOGGER } from './observability/logger';
       // Everything a request touches goes through the application role above.
       provide: OWNER_DATABASE,
       inject: [APP_CONFIG],
-      useFactory: (config: AppConfig) => createDatabase({ url: config.databaseOwnerUrl, max: 2 }),
+      // The same limits as the application pool (MIO-016 Q3): the sweep this pool
+      // exists for is a bounded claim over expired leases, and if it ever cannot
+      // finish inside the statement limit then the limit is not what is wrong.
+      useFactory: (config: AppConfig) =>
+        createDatabase({ url: config.databaseOwnerUrl, max: 2, timeouts: timeoutsFrom(config) }),
     },
     {
       provide: JobUnitOfWork,

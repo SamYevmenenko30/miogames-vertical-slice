@@ -9,8 +9,8 @@ Two simulated operators with **genuinely different schemas on both sides** drive
 gamification logic. A third was onboarded as a rehearsal, to measure what that claim costs: six
 files, none of them in the core ([scaling.md §2](docs/scaling.md)).
 
-The process around this — the specs, the board, the ten gates — is one card of sixteen; the other
-fifteen are the product. It is a distillation, not an invention for this exercise — a
+The process around this — the specs, the board, the ten gates — is one card of seventeen; the other
+sixteen are the product. It is a distillation, not an invention for this exercise — a
 working method of my own, already running on a live product
 ([Part D](docs/ai/how-ai-was-used.md)).
 
@@ -78,7 +78,7 @@ history of the work is the history of the repository.
 
 ```bash
 pnpm verify        # lint (hexagonal boundaries) · typecheck · arch-check · board · spec-gate
-                   # · test-guard · 221 tests · build · smoke
+                   # · test-guard · 250 tests · build · smoke
 pnpm gate-probes   # 23 probes: do the gates actually bite?
 pnpm board         # print the board
 ```
